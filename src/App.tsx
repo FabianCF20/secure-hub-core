@@ -3,7 +3,16 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { MainLayout } from "@/components/layout";
+import Dashboard from "./pages/Dashboard";
+import Clients from "./pages/Clients";
+import Users from "./pages/Users";
+import Forms from "./pages/Forms";
+import FormBuilder from "./pages/FormBuilder";
+import Records from "./pages/Records";
+import RecordDetail from "./pages/RecordDetail";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -15,8 +24,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/forms" element={<Forms />} />
+            <Route path="/forms/builder" element={<FormBuilder />} />
+            <Route path="/forms/builder/:formId" element={<FormBuilder />} />
+            <Route path="/records" element={<Records />} />
+            <Route path="/records/:recordId" element={<RecordDetail />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
