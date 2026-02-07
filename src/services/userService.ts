@@ -1,5 +1,6 @@
 import { User } from "@/models";
 import { mockUsers } from "@/data/mockData";
+import { authService } from "@/services/authService";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -29,6 +30,11 @@ export const userService = {
     console.log(`[Auth Simulado] Creando cuenta en Firebase Auth para: ${userData.email}`);
     const authUid = `auth_${Date.now()}`;
     console.log(`[Auth Simulado] UID generado: ${authUid}`);
+
+    // Registra las credenciales en Auth para permitir login
+    if (password) {
+      authService.registerAuthAccount(userData.email, password);
+    }
     
     // Crea el documento del usuario en la BDD (Firestore)
     const newUser: User = {

@@ -1,4 +1,6 @@
-import { Bell, Search, User } from "lucide-react";
+import { Bell, Search, LogOut, User as UserIcon, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +17,21 @@ interface TopbarProps {
   sidebarCollapsed: boolean;
 }
 
+const roleLabels: Record<string, string> = {
+  ADMIN: "Administrador",
+  SUPERVISOR: "Supervisor",
+  OPERATIVO: "Operativo",
+};
+
 export function Topbar({ sidebarCollapsed }: TopbarProps) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <header
       className={`fixed top-0 right-0 z-30 h-16 border-b border-border bg-card transition-all duration-300 ${
@@ -48,21 +64,35 @@ export function Topbar({ sidebarCollapsed }: TopbarProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <User className="h-4 w-4" />
+                  <UserIcon className="h-4 w-4" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">Admin</p>
-                  <p className="text-xs text-muted-foreground">Administrador</p>
+                  <p className="text-sm font-medium">{user?.fullName || "Usuario"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user ? roleLabels[user.role] || user.role : "—"}
+                  </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user?.fullName}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Perfil</DropdownMenuItem>
-              <DropdownMenuItem>Preferencias</DropdownMenuItem>
+              <DropdownMenuItem>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                Preferencias
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
