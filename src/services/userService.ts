@@ -21,13 +21,23 @@ export const userService = {
     return users.filter(u => u.clientId === clientId);
   },
 
-  async createUser(user: Omit<User, "id">): Promise<User> {
+  async createUser(userData: Omit<User, "id"> & { password?: string }): Promise<User> {
     await delay(150);
+    
+    // Simula creación en Firebase Auth
+    const { password, ...userFields } = userData;
+    console.log(`[Auth Simulado] Creando cuenta en Firebase Auth para: ${userData.email}`);
+    const authUid = `auth_${Date.now()}`;
+    console.log(`[Auth Simulado] UID generado: ${authUid}`);
+    
+    // Crea el documento del usuario en la BDD (Firestore)
     const newUser: User = {
-      ...user,
-      id: `user_${Date.now()}`,
+      ...userFields,
+      id: authUid, // Usa el mismo UID del Auth como ID del documento
     };
     users.push(newUser);
+    console.log(`[BDD Simulado] Usuario creado en colección users/ con ID: ${authUid}`);
+    
     return newUser;
   },
 

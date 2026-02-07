@@ -65,6 +65,7 @@ export default function Users() {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    password: "",
     role: "OPERATIVO" as UserRole,
     clientId: "",
     isActive: true,
@@ -127,6 +128,7 @@ export default function Users() {
     setFormData({
       fullName: "",
       email: "",
+      password: "",
       role: "OPERATIVO",
       clientId: clients[0]?.id || "",
       isActive: true,
@@ -139,6 +141,7 @@ export default function Users() {
     setFormData({
       fullName: user.fullName,
       email: user.email,
+      password: "",
       role: user.role,
       clientId: user.clientId,
       isActive: user.isActive,
@@ -147,13 +150,22 @@ export default function Users() {
   }
 
   async function handleSave() {
+    if (!editingUser && (!formData.email || !formData.password)) {
+      toast.error("Email y contraseña son obligatorios");
+      return;
+    }
+    if (!editingUser && formData.password.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
     try {
       if (editingUser) {
-        await userService.updateUser(editingUser.id, formData);
+        const { password, ...updateData } = formData;
+        await userService.updateUser(editingUser.id, updateData);
         toast.success("Usuario actualizado");
       } else {
         await userService.createUser(formData);
-        toast.success("Usuario creado");
+        toast.success("Usuario creado en Auth y Base de Datos");
       }
       setDialogOpen(false);
       loadData();
@@ -354,6 +366,21 @@ export default function Users() {
                 placeholder="Ej: juan.rodriguez@empresa.com"
               />
             </div>
+            {!editingUser && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Se usará para crear la cuenta en Firebase Auth
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="clientId">Cliente</Label>
               <Select
