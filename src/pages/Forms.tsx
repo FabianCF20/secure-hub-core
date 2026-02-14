@@ -1,44 +1,24 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal, FileText, Filter, Copy, ArrowUpRight, Eye } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Copy, ArrowUpRight, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { formService, clientService } from "@/services";
 import { Form, Client } from "@/models";
 import { toast } from "sonner";
+import { PageHeader, SearchInput, FilterBar, LoadingState, StatusBadge, EntityAvatar, ResponsiveTable, ConfirmDialog } from "@/components/shared";
 
 export default function Forms() {
   const navigate = useNavigate();
@@ -53,51 +33,24 @@ export default function Forms() {
   const [cloningForm, setCloningForm] = useState<Form | null>(null);
   const [cloneName, setCloneName] = useState("");
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     let filtered = forms;
-
-    if (searchQuery) {
-      filtered = filtered.filter((f) =>
-        f.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (filterClient !== "all") {
-      filtered = filtered.filter((f) => f.clientId === filterClient);
-    }
-
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((f) =>
-        filterStatus === "active" ? f.isActive : !f.isActive
-      );
-    }
-
+    if (searchQuery) filtered = filtered.filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (filterClient !== "all") filtered = filtered.filter((f) => f.clientId === filterClient);
+    if (filterStatus !== "all") filtered = filtered.filter((f) => filterStatus === "active" ? f.isActive : !f.isActive);
     setFilteredForms(filtered);
   }, [forms, searchQuery, filterClient, filterStatus]);
 
   async function loadData() {
     try {
-      const [formsData, clientsData] = await Promise.all([
-        formService.getForms(),
-        clientService.getClients(),
-      ]);
-      setForms(formsData);
-      setClients(clientsData);
-    } catch (error) {
-      toast.error("Error al cargar formularios");
-    } finally {
-      setLoading(false);
-    }
+      const [formsData, clientsData] = await Promise.all([formService.getForms(), clientService.getClients()]);
+      setForms(formsData); setClients(clientsData);
+    } catch (error) { toast.error("Error al cargar formularios"); } finally { setLoading(false); }
   }
 
-  function getClientName(clientId: string): string {
-    const client = clients.find((c) => c.id === clientId);
-    return client?.name || "Sin asignar";
-  }
+  const getClientName = (id: string) => clients.find((c) => c.id === id)?.name || "Sin asignar";
 
   function openCloneDialog(form: Form) {
     setCloningForm(form);
@@ -112,9 +65,7 @@ export default function Forms() {
       toast.success("Formulario clonado exitosamente");
       setCloneDialogOpen(false);
       loadData();
-    } catch (error) {
-      toast.error("Error al clonar formulario");
-    }
+    } catch (error) { toast.error("Error al clonar formulario"); }
   }
 
   async function incrementVersion(form: Form) {
@@ -122,9 +73,7 @@ export default function Forms() {
       await formService.incrementVersion(form.id);
       toast.success(`Versión incrementada a ${form.version + 1}`);
       loadData();
-    } catch (error) {
-      toast.error("Error al incrementar versión");
-    }
+    } catch (error) { toast.error("Error al incrementar versión"); }
   }
 
   async function toggleStatus(form: Form) {
@@ -132,191 +81,151 @@ export default function Forms() {
       await formService.toggleFormStatus(form.id);
       toast.success(form.isActive ? "Formulario desactivado" : "Formulario activado");
       loadData();
-    } catch (error) {
-      toast.error("Error al cambiar estado");
-    }
+    } catch (error) { toast.error("Error al cambiar estado"); }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">Cargando formularios...</div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingState message="Cargando formularios..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="page-title">Gestión de Formularios</h1>
-          <p className="page-description">
-            Administra las plantillas de formularios operativos
-          </p>
-        </div>
-        <Button onClick={() => navigate("/forms/builder")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Formulario
-        </Button>
-      </div>
+      <PageHeader
+        title="Gestión de Formularios"
+        description="Administra las plantillas de formularios operativos"
+        actions={
+          <Button onClick={() => navigate("/forms/builder")}>
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Nuevo Formulario</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <CardTitle>Plantillas de Formularios</CardTitle>
                 <CardDescription>{forms.length} formularios en total</CardDescription>
               </div>
-              <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nombre..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Buscar por nombre..." className="lg:max-w-80" />
             </div>
-
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Filtros:</span>
-              </div>
+            <FilterBar>
               <Select value={filterClient} onValueChange={setFilterClient}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Cliente" />
-                </SelectTrigger>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Cliente" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los clientes</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
+                  {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
+                <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Estado" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="active">Activos</SelectItem>
                   <SelectItem value="inactive">Inactivos</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FilterBar>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Formulario</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead className="text-center">Campos</TableHead>
-                <TableHead className="text-center">Versión</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredForms.map((form) => (
-                <TableRow key={form.id} className="table-row-hover">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <span className="font-medium">{form.name}</span>
-                        <p className="text-xs text-muted-foreground">
-                          ID: {form.id}
-                        </p>
-                      </div>
+          {/* Mobile card view */}
+          <div className="space-y-3 md:hidden">
+            {filteredForms.map((form) => (
+              <div key={form.id} className="p-3 rounded-lg border space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <EntityAvatar icon={FileText} shape="rounded" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate text-sm">{form.name}</p>
+                      <p className="text-xs text-muted-foreground">{getClientName(form.clientId)}</p>
                     </div>
-                  </TableCell>
-                  <TableCell>{getClientName(form.clientId)}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline">{form.fields.length} campos</Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <code className="text-sm bg-muted px-2 py-1 rounded">
-                      v{form.version}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={form.isActive ? "default" : "secondary"}
-                      className={form.isActive ? "bg-success" : ""}
-                    >
-                      {form.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver / Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openCloneDialog(form)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Clonar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => incrementVersion(form)}>
-                          <ArrowUpRight className="mr-2 h-4 w-4" />
-                          Incrementar Versión
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => toggleStatus(form)}>
-                          {form.isActive ? "Desactivar" : "Activar"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="shrink-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}><Eye className="mr-2 h-4 w-4" />Ver / Editar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openCloneDialog(form)}><Copy className="mr-2 h-4 w-4" />Clonar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => incrementVersion(form)}><ArrowUpRight className="mr-2 h-4 w-4" />Incrementar Versión</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => toggleStatus(form)}>{form.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{form.fields.length} campos</Badge>
+                  <code className="text-xs bg-muted px-2 py-0.5 rounded">v{form.version}</code>
+                  <StatusBadge active={form.isActive} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <ResponsiveTable>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Formulario</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-center">Campos</TableHead>
+                    <TableHead className="text-center">Versión</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredForms.map((form) => (
+                    <TableRow key={form.id} className="table-row-hover">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <EntityAvatar icon={FileText} shape="rounded" />
+                          <div>
+                            <span className="font-medium">{form.name}</span>
+                            <p className="text-xs text-muted-foreground">ID: {form.id}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getClientName(form.clientId)}</TableCell>
+                      <TableCell className="text-center"><Badge variant="outline">{form.fields.length} campos</Badge></TableCell>
+                      <TableCell className="text-center"><code className="text-sm bg-muted px-2 py-1 rounded">v{form.version}</code></TableCell>
+                      <TableCell><StatusBadge active={form.isActive} /></TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}><Eye className="mr-2 h-4 w-4" />Ver / Editar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openCloneDialog(form)}><Copy className="mr-2 h-4 w-4" />Clonar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => incrementVersion(form)}><ArrowUpRight className="mr-2 h-4 w-4" />Incrementar Versión</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => toggleStatus(form)}>{form.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 
-      {/* Clone Dialog */}
-      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Clonar Formulario</DialogTitle>
-            <DialogDescription>
-              Se creará una copia del formulario "{cloningForm?.name}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="cloneName">Nombre del nuevo formulario</Label>
-              <Input
-                id="cloneName"
-                value={cloneName}
-                onChange={(e) => setCloneName(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCloneDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleClone}>Clonar Formulario</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={cloneDialogOpen}
+        onOpenChange={setCloneDialogOpen}
+        title="Clonar Formulario"
+        description={`Se creará una copia del formulario "${cloningForm?.name}"`}
+        onConfirm={handleClone}
+        confirmLabel="Clonar Formulario"
+      >
+        <div className="space-y-2">
+          <Label htmlFor="cloneName">Nombre del nuevo formulario</Label>
+          <Input id="cloneName" value={cloneName} onChange={(e) => setCloneName(e.target.value)} />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

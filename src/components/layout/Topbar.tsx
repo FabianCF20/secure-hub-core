@@ -1,4 +1,4 @@
-import { Bell, Search, LogOut, User as UserIcon, Settings } from "lucide-react";
+import { Bell, Search, LogOut, User as UserIcon, Settings, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 
 interface TopbarProps {
   sidebarCollapsed: boolean;
+  onMobileMenuToggle?: () => void;
+  isMobile?: boolean;
 }
 
 const roleLabels: Record<string, string> = {
@@ -23,7 +25,7 @@ const roleLabels: Record<string, string> = {
   OPERATIVO: "Operativo",
 };
 
-export function Topbar({ sidebarCollapsed }: TopbarProps) {
+export function Topbar({ sidebarCollapsed, onMobileMenuToggle, isMobile }: TopbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -35,22 +37,36 @@ export function Topbar({ sidebarCollapsed }: TopbarProps) {
   return (
     <header
       className={`fixed top-0 right-0 z-30 h-16 border-b border-border bg-card transition-all duration-300 ${
-        sidebarCollapsed ? "left-16" : "left-64"
+        isMobile ? "left-0" : sidebarCollapsed ? "left-16" : "left-64"
       }`}
     >
-      <div className="flex h-full items-center justify-between px-6">
-        {/* Search */}
-        <div className="relative w-96 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar clientes, usuarios, formularios..."
-            className="pl-10 bg-background"
-          />
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          {/* Mobile hamburger */}
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={onMobileMenuToggle}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+
+          {/* Search - hidden on small mobile */}
+          <div className="relative hidden sm:block w-64 md:w-80 lg:w-96">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar..."
+              className="pl-10 bg-background"
+            />
+          </div>
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Mobile search button */}
+          <Button variant="ghost" size="icon" className="sm:hidden">
+            <Search className="h-5 w-5" />
+          </Button>
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
