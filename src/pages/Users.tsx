@@ -1,43 +1,24 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal, User as UserIcon, Filter } from "lucide-react";
+import { Plus, MoreHorizontal, User as UserIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { userService, clientService } from "@/services";
 import { User, Client, UserRole } from "@/models";
 import { toast } from "sonner";
+import { PageHeader, SearchInput, FilterBar, LoadingState, StatusBadge, EntityAvatar, ResponsiveTable, ConfirmDialog } from "@/components/shared";
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrador",
@@ -71,13 +52,10 @@ export default function Users() {
     isActive: true,
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     let filtered = users;
-
     if (searchQuery) {
       filtered = filtered.filter(
         (u) =>
@@ -85,21 +63,9 @@ export default function Users() {
           u.email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
-    if (filterClient !== "all") {
-      filtered = filtered.filter((u) => u.clientId === filterClient);
-    }
-
-    if (filterRole !== "all") {
-      filtered = filtered.filter((u) => u.role === filterRole);
-    }
-
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((u) => 
-        filterStatus === "active" ? u.isActive : !u.isActive
-      );
-    }
-
+    if (filterClient !== "all") filtered = filtered.filter((u) => u.clientId === filterClient);
+    if (filterRole !== "all") filtered = filtered.filter((u) => u.role === filterRole);
+    if (filterStatus !== "all") filtered = filtered.filter((u) => filterStatus === "active" ? u.isActive : !u.isActive);
     setFilteredUsers(filtered);
   }, [users, searchQuery, filterClient, filterRole, filterStatus]);
 
@@ -119,33 +85,18 @@ export default function Users() {
   }
 
   function getClientName(clientId: string): string {
-    const client = clients.find((c) => c.id === clientId);
-    return client?.name || "Sin asignar";
+    return clients.find((c) => c.id === clientId)?.name || "Sin asignar";
   }
 
   function openCreateDialog() {
     setEditingUser(null);
-    setFormData({
-      fullName: "",
-      email: "",
-      password: "",
-      role: "OPERATIVO",
-      clientId: clients[0]?.id || "",
-      isActive: true,
-    });
+    setFormData({ fullName: "", email: "", password: "", role: "OPERATIVO", clientId: clients[0]?.id || "", isActive: true });
     setDialogOpen(true);
   }
 
   function openEditDialog(user: User) {
     setEditingUser(user);
-    setFormData({
-      fullName: user.fullName,
-      email: user.email,
-      password: "",
-      role: user.role,
-      clientId: user.clientId,
-      isActive: user.isActive,
-    });
+    setFormData({ fullName: user.fullName, email: user.email, password: "", role: user.role, clientId: user.clientId, isActive: user.isActive });
     setDialogOpen(true);
   }
 
@@ -184,69 +135,49 @@ export default function Users() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">Cargando usuarios...</div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingState message="Cargando usuarios..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="page-title">Gestión de Usuarios</h1>
-          <p className="page-description">
-            Administra los usuarios de la plataforma
-          </p>
-        </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Usuario
-        </Button>
-      </div>
+      <PageHeader
+        title="Gestión de Usuarios"
+        description="Administra los usuarios de la plataforma"
+        actions={
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Nuevo Usuario</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <CardTitle>Usuarios Registrados</CardTitle>
                 <CardDescription>{users.length} usuarios en total</CardDescription>
               </div>
-              <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nombre o email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Buscar por nombre o email..."
+                className="lg:max-w-80"
+              />
             </div>
-
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Filtros:</span>
-              </div>
+            <FilterBar>
               <Select value={filterClient} onValueChange={setFilterClient}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Cliente" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los clientes</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
+                  {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Rol" />
                 </SelectTrigger>
                 <SelectContent>
@@ -257,7 +188,7 @@ export default function Users() {
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-36">
+                <SelectTrigger className="w-full sm:w-36">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,174 +197,137 @@ export default function Users() {
                   <SelectItem value="inactive">Inactivos</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FilterBar>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuario</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id} className="table-row-hover">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <UserIcon className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="font-medium">{user.fullName}</span>
+          {/* Mobile card view */}
+          <div className="space-y-3 md:hidden">
+            {filteredUsers.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
+                <div className="flex items-center gap-3 min-w-0">
+                  <EntityAvatar icon={UserIcon} />
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{user.fullName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    <div className="flex gap-2 mt-1">
+                      <Badge className={roleColors[user.role]} >{roleLabels[user.role]}</Badge>
+                      <StatusBadge active={user.isActive} />
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {user.email}
-                  </TableCell>
-                  <TableCell>{getClientName(user.clientId)}</TableCell>
-                  <TableCell>
-                    <Badge className={roleColors[user.role]}>
-                      {roleLabels[user.role]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={user.isActive ? "default" : "secondary"}
-                      className={user.isActive ? "bg-success" : ""}
-                    >
-                      {user.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toggleStatus(user)}>
-                          {user.isActive ? "Desactivar" : "Activar"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openEditDialog(user)}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleStatus(user)}>{user.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table view */}
+          <ResponsiveTable>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuario</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="table-row-hover">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <EntityAvatar icon={UserIcon} />
+                          <span className="font-medium">{user.fullName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                      <TableCell>{getClientName(user.clientId)}</TableCell>
+                      <TableCell>
+                        <Badge className={roleColors[user.role]}>{roleLabels[user.role]}</Badge>
+                      </TableCell>
+                      <TableCell><StatusBadge active={user.isActive} /></TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(user)}>Editar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleStatus(user)}>{user.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </ResponsiveTable>
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingUser ? "Editar Usuario" : "Nuevo Usuario"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingUser
-                ? "Modifica los datos del usuario"
-                : "Ingresa los datos del nuevo usuario"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nombre Completo</Label>
-              <Input
-                id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder="Ej: Juan Pablo Rodríguez"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Ej: juan.rodriguez@empresa.com"
-              />
-            </div>
-            {!editingUser && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Se usará para crear la cuenta en Firebase Auth
-                </p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="clientId">Cliente</Label>
-              <Select
-                value={formData.clientId}
-                onValueChange={(value) => setFormData({ ...formData, clientId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Rol</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ADMIN">Administrador</SelectItem>
-                  <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                  <SelectItem value="OPERATIVO">Operativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="isActive">Usuario activo</Label>
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-              />
-            </div>
+      <ConfirmDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editingUser ? "Editar Usuario" : "Nuevo Usuario"}
+        description={editingUser ? "Modifica los datos del usuario" : "Ingresa los datos del nuevo usuario"}
+        onConfirm={handleSave}
+        confirmLabel={editingUser ? "Guardar Cambios" : "Crear Usuario"}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Nombre Completo</Label>
+          <Input id="fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="Ej: Juan Pablo Rodríguez" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="Ej: juan.rodriguez@empresa.com" />
+        </div>
+        {!editingUser && (
+          <div className="space-y-2">
+            <Label htmlFor="password">Contraseña</Label>
+            <Input id="password" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Mínimo 6 caracteres" />
+            <p className="text-xs text-muted-foreground">Se usará para crear la cuenta en Firebase Auth</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              {editingUser ? "Guardar Cambios" : "Crear Usuario"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="clientId">Cliente</Label>
+          <Select value={formData.clientId} onValueChange={(value) => setFormData({ ...formData, clientId: value })}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="role">Rol</Label>
+          <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ADMIN">Administrador</SelectItem>
+              <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
+              <SelectItem value="OPERATIVO">Operativo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="isActive">Usuario activo</Label>
+          <Switch id="isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }
