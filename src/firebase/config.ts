@@ -20,12 +20,13 @@ import { getStorage, FirebaseStorage } from "firebase/storage";
 // Estas claves son PÚBLICAS y seguras para incluir en el código del cliente.
 // La seguridad se garantiza mediante Firebase Auth + Security Rules.
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_AQUI",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID",
+  apiKey: "AIzaSyAQc1oiccBE-Py1Nc2EXHVZ6jA6ZY7Ew_w",
+  authDomain: "ainca-6cf4d.firebaseapp.com",
+  projectId: "ainca-6cf4d",
+  storageBucket: "ainca-6cf4d.firebasestorage.app",
+  messagingSenderId: "327745320667",
+  appId: "1:327745320667:web:571ba0963669f1387f7efe",
+  measurementId: "G-6HVDMERTFK",
 };
 
 // Flag para determinar si usar Firebase real o datos mock
