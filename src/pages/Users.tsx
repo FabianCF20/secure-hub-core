@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { userService, clientService } from "@/services";
 import { User, Client, UserRole } from "@/models";
 import { toast } from "sonner";
@@ -22,14 +23,18 @@ import { PageHeader, SearchInput, FilterBar, LoadingState, StatusBadge, EntityAv
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrador",
+  CENTRAL: "Central",
   SUPERVISOR: "Supervisor",
-  OPERATIVO: "Operativo",
+  COORDINADOR: "Coordinador",
+  CLIENTE: "Cliente",
 };
 
 const roleColors: Record<UserRole, string> = {
   ADMIN: "bg-destructive",
+  CENTRAL: "bg-primary",
   SUPERVISOR: "bg-warning",
-  OPERATIVO: "bg-info",
+  COORDINADOR: "bg-info",
+  CLIENTE: "bg-success",
 };
 
 export default function Users() {
@@ -47,8 +52,8 @@ export default function Users() {
     fullName: "",
     email: "",
     password: "",
-    role: "OPERATIVO" as UserRole,
-    clientId: "",
+    role: "SUPERVISOR" as UserRole,
+    clientIds: [] as string[],
     isActive: true,
   });
 
@@ -63,7 +68,7 @@ export default function Users() {
           u.email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    if (filterClient !== "all") filtered = filtered.filter((u) => u.clientId === filterClient);
+    if (filterClient !== "all") filtered = filtered.filter((u) => u.clientIds.includes(filterClient));
     if (filterRole !== "all") filtered = filtered.filter((u) => u.role === filterRole);
     if (filterStatus !== "all") filtered = filtered.filter((u) => filterStatus === "active" ? u.isActive : !u.isActive);
     setFilteredUsers(filtered);
@@ -84,20 +89,35 @@ export default function Users() {
     }
   }
 
-  function getClientName(clientId: string): string {
-    return clients.find((c) => c.id === clientId)?.name || "Sin asignar";
+  function getClientNames(clientIds: string[]): string {
+    if (!clientIds || clientIds.length === 0) return "Sin asignar";
+    return clientIds
+      .map((id) => clients.find((c) => c.id === id)?.name || id)
+      .join(", ");
   }
 
   function openCreateDialog() {
     setEditingUser(null);
-    setFormData({ fullName: "", email: "", password: "", role: "OPERATIVO", clientId: clients[0]?.id || "", isActive: true });
+    setFormData({ fullName: "", email: "", password: "", role: "SUPERVISOR", clientIds: [], isActive: true });
     setDialogOpen(true);
   }
 
   function openEditDialog(user: User) {
     setEditingUser(user);
-    setFormData({ fullName: user.fullName, email: user.email, password: "", role: user.role, clientId: user.clientId, isActive: user.isActive });
+    setFormData({ fullName: user.fullName, email: user.email, password: "", role: user.role, clientIds: [...user.clientIds], isActive: user.isActive });
     setDialogOpen(true);
+  }
+
+  function toggleClientSelection(clientId: string) {
+    setFormData((prev) => {
+      const exists = prev.clientIds.includes(clientId);
+      return {
+        ...prev,
+        clientIds: exists
+          ? prev.clientIds.filter((id) => id !== clientId)
+          : [...prev.clientIds, clientId],
+      };
+    });
   }
 
   async function handleSave() {
@@ -183,8 +203,10 @@ export default function Users() {
                 <SelectContent>
                   <SelectItem value="all">Todos los roles</SelectItem>
                   <SelectItem value="ADMIN">Administrador</SelectItem>
+                  <SelectItem value="CENTRAL">Central</SelectItem>
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                  <SelectItem value="OPERATIVO">Operativo</SelectItem>
+                  <SelectItem value="COORDINADOR">Coordinador</SelectItem>
+                  <SelectItem value="CLIENTE">Cliente</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -210,10 +232,13 @@ export default function Users() {
                   <div className="min-w-0">
                     <p className="font-medium truncate">{user.fullName}</p>
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                    <div className="flex gap-2 mt-1">
-                      <Badge className={roleColors[user.role]} >{roleLabels[user.role]}</Badge>
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      <Badge className={roleColors[user.role]}>{roleLabels[user.role]}</Badge>
                       <StatusBadge active={user.isActive} />
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      {getClientNames(user.clientIds)}
+                    </p>
                   </div>
                 </div>
                 <DropdownMenu>
@@ -239,7 +264,7 @@ export default function Users() {
                   <TableRow>
                     <TableHead>Usuario</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Cliente</TableHead>
+                    <TableHead>Clientes</TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="w-12"></TableHead>
@@ -255,7 +280,19 @@ export default function Users() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                      <TableCell>{getClientName(user.clientId)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {user.clientIds.length === 0 ? (
+                            <span className="text-muted-foreground text-sm">Sin asignar</span>
+                          ) : (
+                            user.clientIds.map((cId) => (
+                              <Badge key={cId} variant="outline" className="text-xs">
+                                {clients.find((c) => c.id === cId)?.name || cId}
+                              </Badge>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge className={roleColors[user.role]}>{roleLabels[user.role]}</Badge>
                       </TableCell>
@@ -304,25 +341,38 @@ export default function Users() {
           </div>
         )}
         <div className="space-y-2">
-          <Label htmlFor="clientId">Cliente</Label>
-          <Select value={formData.clientId} onValueChange={(value) => setFormData({ ...formData, clientId: value })}>
-            <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-            <SelectContent>
-              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
           <Label htmlFor="role">Rol</Label>
           <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}>
             <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ADMIN">Administrador</SelectItem>
+              <SelectItem value="CENTRAL">Central</SelectItem>
               <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-              <SelectItem value="OPERATIVO">Operativo</SelectItem>
+              <SelectItem value="COORDINADOR">Coordinador</SelectItem>
+              <SelectItem value="CLIENTE">Cliente</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        {formData.role !== "ADMIN" && (
+          <div className="space-y-2">
+            <Label>Clientes Asignados</Label>
+            <p className="text-xs text-muted-foreground">Selecciona uno o varios clientes (puede dejarse vacío)</p>
+            <div className="max-h-40 overflow-y-auto space-y-2 rounded-md border p-3">
+              {clients.map((client) => (
+                <div key={client.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`client-${client.id}`}
+                    checked={formData.clientIds.includes(client.id)}
+                    onCheckedChange={() => toggleClientSelection(client.id)}
+                  />
+                  <Label htmlFor={`client-${client.id}`} className="text-sm font-normal cursor-pointer">
+                    {client.name}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <Label htmlFor="isActive">Usuario activo</Label>
           <Switch id="isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />

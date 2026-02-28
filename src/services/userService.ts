@@ -19,7 +19,7 @@ export const userService = {
 
   async getUsersByClient(clientId: string): Promise<User[]> {
     await delay(100);
-    return users.filter(u => u.clientId === clientId);
+    return users.filter(u => u.clientIds.includes(clientId));
   },
 
   async createUser(userData: Omit<User, "id"> & { password?: string }): Promise<User> {

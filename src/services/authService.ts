@@ -20,13 +20,13 @@ export interface AuthResult {
 // En producción, esto lo manejaría Firebase Auth directamente
 const mockAuthAccounts: Record<string, string> = {
   "carlos.mendoza@seguridadnorte.com": "admin123",
-  "maria.vargas@seguridadnorte.com": "super123",
-  "juan.rodriguez@seguridadnorte.com": "oper123",
-  "andrea.lopez@proteccionempresarial.com": "super123",
-  "roberto.diaz@proteccionempresarial.com": "oper123",
-  "laura.martinez@vigilanciametro.com": "super123",
-  "pedro.sanchez@vigilanciametro.com": "oper123",
-  "diana.ruiz@guardian.com": "admin123",
+  "maria.vargas@seguridadnorte.com": "central123",
+  "juan.rodriguez@seguridadnorte.com": "super123",
+  "andrea.lopez@proteccionempresarial.com": "coord123",
+  "roberto.diaz@proteccionempresarial.com": "super123",
+  "laura.martinez@vigilanciametro.com": "coord123",
+  "pedro.sanchez@vigilanciametro.com": "super123",
+  "diana.ruiz@guardian.com": "cliente123",
 };
 
 export const authService = {

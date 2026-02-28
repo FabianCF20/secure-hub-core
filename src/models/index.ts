@@ -4,7 +4,7 @@
 // ==========================================
 
 // Tipos de roles del sistema
-export type UserRole = "ADMIN" | "SUPERVISOR" | "OPERATIVO";
+export type UserRole = "ADMIN" | "CENTRAL" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE";
 
 // Estados de registros
 export type RecordStatus = "PENDING" | "SENT" | "APPROVED" | "REJECTED";
@@ -30,7 +30,7 @@ export interface User {
   fullName: string;
   email: string;
   role: UserRole;
-  clientId: string;
+  clientIds: string[];   // Array de clientes asignados (puede estar vacío)
   isActive: boolean;
 }
 
