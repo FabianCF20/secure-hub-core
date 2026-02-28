@@ -1,22 +1,15 @@
 // ==========================================
 // FIRESTORE SECURITY RULES
 // ==========================================
-// Archivo: firestore.rules
+// Roles: ADMIN, CENTRAL, SUPERVISOR, COORDINADOR, CLIENTE
 //
-// INSTRUCCIONES DE USO:
-// 1. Ve a Firebase Console → Firestore Database → Rules
-// 2. Copia y pega todo el contenido de este archivo
-// 3. Haz clic en "Publicar"
+// ADMIN: CRUD usuarios, clientes. Todo acceso.
+// CENTRAL: Crea formularios. Ve TODOS los formularios. Valida formularios de cualquier cliente.
+// SUPERVISOR: Diligencia formularios. No valida.
+// COORDINADOR: Ve y valida formularios de sus clientes asignados.
+// CLIENTE: Solo ve formularios/registros de su cuenta.
 //
-// ALTERNATIVA: Usa Firebase CLI
-// $ firebase deploy --only firestore:rules
-//
-// ESTRUCTURA DE DATOS:
-// /clients/{clientId}        → Datos del cliente
-// /users/{userId}            → Perfil del usuario (userId = Auth UID)
-// /forms/{formId}            → Plantillas de formularios
-// /records/{recordId}        → Registros diligenciados
-// /systemConfig/main         → Configuración del sistema
+// Usuarios tienen clientIds[] (array). Puede estar vacío.
 // ==========================================
 
 rules_version = '2';
@@ -25,52 +18,48 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================
-    // FUNCIONES AUXILIARES DE SEGURIDAD
+    // FUNCIONES AUXILIARES
     // ============================================
 
-    // Verifica que el usuario esté autenticado
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Obtiene el perfil del usuario actual desde Firestore
     function getUserProfile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Verifica el rol del usuario
-    function hasRole(role) {
-      return isAuthenticated() && getUserProfile().role == role;
+    function userRole() {
+      return getUserProfile().role;
     }
 
-    // Verifica si es ADMIN
     function isAdmin() {
-      return hasRole('ADMIN');
+      return isAuthenticated() && userRole() == 'ADMIN';
     }
 
-    // Verifica si es SUPERVISOR
+    function isCentral() {
+      return isAuthenticated() && userRole() == 'CENTRAL';
+    }
+
     function isSupervisor() {
-      return hasRole('SUPERVISOR');
+      return isAuthenticated() && userRole() == 'SUPERVISOR';
     }
 
-    // Verifica si es OPERATIVO
-    function isOperativo() {
-      return hasRole('OPERATIVO');
+    function isCoordinador() {
+      return isAuthenticated() && userRole() == 'COORDINADOR';
     }
 
-    // Verifica si es ADMIN o SUPERVISOR
-    function isAdminOrSupervisor() {
-      return isAuthenticated() && getUserProfile().role in ['ADMIN', 'SUPERVISOR'];
+    function isCliente() {
+      return isAuthenticated() && userRole() == 'CLIENTE';
     }
 
-    // Verifica si el usuario pertenece a un cliente específico
-    function belongsToClient(clientId) {
-      return isAuthenticated() && getUserProfile().clientId == clientId;
-    }
-
-    // Verifica que el usuario esté activo
     function isActiveUser() {
       return isAuthenticated() && getUserProfile().isActive == true;
+    }
+
+    // Verifica si el usuario tiene el clientId en su array clientIds
+    function hasClient(clientId) {
+      return isAuthenticated() && clientId in getUserProfile().clientIds;
     }
 
     // ============================================
@@ -78,80 +67,86 @@ service cloud.firestore {
     // ============================================
 
     // --- CLIENTES ---
-    // ADMIN: lectura y escritura completa
-    // SUPERVISOR: solo lectura de su propio cliente
-    // OPERATIVO: solo lectura de su propio cliente
+    // ADMIN: CRUD completo
+    // Resto: lectura de clientes que tengan asignados
     match /clients/{clientId} {
       allow read: if isAuthenticated() && isActiveUser() && (
-        isAdmin() || belongsToClient(clientId)
+        isAdmin() ||
+        isCentral() ||
+        hasClient(clientId)
       );
       allow create, update: if isAdmin() && isActiveUser();
-      allow delete: if false; // Nunca se eliminan clientes, solo se desactivan
+      allow delete: if false;
     }
 
     // --- USUARIOS ---
     // ADMIN: CRUD completo
-    // SUPERVISOR: lectura de usuarios de su mismo cliente
-    // OPERATIVO: solo lectura de su propio perfil
+    // Otros: lectura de su propio perfil
     match /users/{userId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
-        request.auth.uid == userId ||
-        (isSupervisor() && belongsToClient(resource.data.clientId))
+        request.auth.uid == userId
       );
       allow create: if isAdmin() && isActiveUser();
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
-        request.auth.uid == userId // Un usuario puede actualizar su propio perfil
+        request.auth.uid == userId
       );
-      allow delete: if false; // Nunca se eliminan usuarios, solo se desactivan
+      allow delete: if false;
     }
 
     // --- FORMULARIOS ---
     // ADMIN: CRUD completo
-    // SUPERVISOR: lectura de formularios de su cliente
-    // OPERATIVO: lectura de formularios activos de su cliente
+    // CENTRAL: CRUD completo (crea y ve todos)
+    // SUPERVISOR: lectura de formularios de sus clientes
+    // COORDINADOR: lectura de formularios de sus clientes
+    // CLIENTE: lectura de formularios de su cliente
     match /forms/{formId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
-        belongsToClient(resource.data.clientId)
+        isCentral() ||
+        hasClient(resource.data.clientId)
       );
-      allow create, update: if isAdminOrSupervisor() && isActiveUser() && (
-        isAdmin() || belongsToClient(request.resource.data.clientId)
+      allow create, update: if isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral()
       );
-      allow delete: if false; // Nunca se eliminan formularios, solo se desactivan
+      allow delete: if false;
     }
 
     // --- REGISTROS ---
-    // ADMIN: lectura y gestión de todos los registros
-    // SUPERVISOR: lectura y aprobación de registros de su cliente
-    // OPERATIVO: creación y lectura de sus propios registros
+    // ADMIN: todo
+    // CENTRAL: lectura y validación de todos los registros
+    // SUPERVISOR: creación + lectura de sus propios registros
+    // COORDINADOR: lectura y validación de registros de sus clientes
+    // CLIENTE: lectura de registros de su cliente
     match /records/{recordId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
-        (isSupervisor() && belongsToClient(resource.data.clientId)) ||
-        (isOperativo() && resource.data.userId == request.auth.uid)
+        isCentral() ||
+        (isSupervisor() && resource.data.userId == request.auth.uid) ||
+        (isCoordinador() && hasClient(resource.data.clientId)) ||
+        (isCliente() && hasClient(resource.data.clientId))
       );
       allow create: if isAuthenticated() && isActiveUser() && (
-        request.resource.data.userId == request.auth.uid &&
-        belongsToClient(request.resource.data.clientId)
+        isSupervisor() &&
+        request.resource.data.userId == request.auth.uid
       );
+      // Validar (update status) — CENTRAL y COORDINADOR (de sus clientes)
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
-        (isSupervisor() && belongsToClient(resource.data.clientId))
+        isCentral() ||
+        (isCoordinador() && hasClient(resource.data.clientId))
       );
-      allow delete: if false; // Los registros nunca se eliminan
+      allow delete: if false;
     }
 
     // --- CONFIGURACIÓN DEL SISTEMA ---
-    // Solo ADMIN puede leer y modificar
     match /systemConfig/{docId} {
       allow read: if isAuthenticated() && isActiveUser();
       allow write: if isAdmin() && isActiveUser();
     }
 
     // --- REGLA DEFAULT ---
-    // Deniega todo lo que no esté explícitamente permitido
     match /{document=**} {
       allow read, write: if false;
     }

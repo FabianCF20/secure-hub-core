@@ -49,7 +49,7 @@ export default function Clients() {
       const stats: Record<string, { users: number; forms: number; records: number }> = {};
       clientsData.forEach((client) => {
         stats[client.id] = {
-          users: usersData.filter((u) => u.clientId === client.id).length,
+          users: usersData.filter((u) => u.clientIds.includes(client.id)).length,
           forms: formsData.filter((f) => f.clientId === client.id).length,
           records: recordsData.filter((r) => r.clientId === client.id).length,
         };

@@ -38,7 +38,7 @@ export const firebaseUserService = {
   },
 
   async getUsersByClient(clientId: string): Promise<User[]> {
-    const q = query(getUsersRef(), where("clientId", "==", clientId));
+    const q = query(getUsersRef(), where("clientIds", "array-contains", clientId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => doc.data());
   },
