@@ -14,6 +14,7 @@ import { recordService, clientService, formService, userService } from "@/servic
 import { Record as RecordType, Client, Form, User, RecordStatus } from "@/models";
 import { toast } from "sonner";
 import { PageHeader, SearchInput, FilterBar, LoadingState, EntityAvatar, ResponsiveTable } from "@/components/shared";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 const statusConfig: { [key in RecordStatus]: { label: string; className: string } } = {
   PENDING: { label: "Pendiente", className: "status-pending" },
@@ -24,6 +25,7 @@ const statusConfig: { [key in RecordStatus]: { label: string; className: string 
 
 export default function Records() {
   const navigate = useNavigate();
+  const { canValidate, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
   const [records, setRecords] = useState<RecordType[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [forms, setForms] = useState<Form[]>([]);
@@ -56,7 +58,15 @@ export default function Records() {
       const [recordsData, clientsData, formsData, usersData] = await Promise.all([
         recordService.getRecords(), clientService.getClients(), formService.getForms(), userService.getUsers(),
       ]);
-      setRecords(recordsData); setClients(clientsData); setForms(formsData); setUsers(usersData);
+      // Filtrar registros según el rol del usuario
+      const accessibleRecords = filterByClientAccess(recordsData);
+      setRecords(accessibleRecords);
+      const accessibleClients = hasGlobalAccess
+        ? clientsData
+        : clientsData.filter((c) => accessibleRecords.some((r) => r.clientId === c.id));
+      setClients(accessibleClients);
+      setForms(formsData);
+      setUsers(usersData);
     } catch (error) { toast.error("Error al cargar registros"); } finally { setLoading(false); }
   }
 
@@ -138,7 +148,7 @@ export default function Records() {
                     <span>{formatDate(record.createdAt)}</span>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/records/${record.id}`)}><Eye className="h-3.5 w-3.5" /></Button>
-                      {(record.status === "PENDING" || record.status === "SENT") && (
+                      {canValidate && (record.status === "PENDING" || record.status === "SENT") && (
                         <>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-success" onClick={() => updateStatus(record.id, "APPROVED")}><Check className="h-3.5 w-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => updateStatus(record.id, "REJECTED")}><X className="h-3.5 w-3.5" /></Button>
@@ -186,7 +196,7 @@ export default function Records() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" onClick={() => navigate(`/records/${record.id}`)}><Eye className="h-4 w-4" /></Button>
-                            {(record.status === "PENDING" || record.status === "SENT") && (
+                            {canValidate && (record.status === "PENDING" || record.status === "SENT") && (
                               <>
                                 <Button variant="ghost" size="icon" className="text-success hover:text-success hover:bg-success/10" onClick={() => updateStatus(record.id, "APPROVED")}><Check className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => updateStatus(record.id, "REJECTED")}><X className="h-4 w-4" /></Button>
