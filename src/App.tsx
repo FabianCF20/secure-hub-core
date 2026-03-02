@@ -37,15 +37,51 @@ const App = () => (
               }
             >
               <Route path="/" element={<Dashboard />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/forms" element={<Forms />} />
-              <Route path="/forms/builder" element={<FormBuilder />} />
-              <Route path="/forms/builder/:formId" element={<FormBuilder />} />
-              <Route path="/records" element={<Records />} />
-              <Route path="/records/:recordId" element={<RecordDetail />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/clients" element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <Clients />
+                </ProtectedRoute>
+              } />
+              <Route path="/users" element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <Users />
+                </ProtectedRoute>
+              } />
+              <Route path="/forms" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <Forms />
+                </ProtectedRoute>
+              } />
+              <Route path="/forms/builder" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
+                  <FormBuilder />
+                </ProtectedRoute>
+              } />
+              <Route path="/forms/builder/:formId" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
+                  <FormBuilder />
+                </ProtectedRoute>
+              } />
+              <Route path="/records" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <Records />
+                </ProtectedRoute>
+              } />
+              <Route path="/records/:recordId" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <RecordDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR"]}>
+                  <Reports />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute allowedRoles={["ADMIN"]}>
+                  <Settings />
+                </ProtectedRoute>
+              } />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

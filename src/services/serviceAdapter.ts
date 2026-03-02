@@ -8,7 +8,7 @@
 import { USE_FIREBASE } from "@/firebase/config";
 
 // Mock services
-import { authService as mockAuthService } from "@/services/authService";
+import { authService as mockAuthService, type AuthCredentials } from "@/services/authService";
 import { clientService as mockClientService } from "@/services/clientService";
 import { userService as mockUserService } from "@/services/userService";
 import { formService as mockFormService } from "@/services/formService";
@@ -32,3 +32,5 @@ export const activeFormService = USE_FIREBASE ? firebaseFormService : mockFormSe
 export const activeRecordService = USE_FIREBASE ? firebaseRecordService : mockRecordService;
 
 console.log(`[ServiceAdapter] Modo: ${USE_FIREBASE ? "🔥 Firebase" : "📦 Mock Data"}`);
+
+export type { AuthCredentials };

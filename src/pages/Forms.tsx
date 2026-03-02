@@ -19,9 +19,11 @@ import { formService, clientService } from "@/services";
 import { Form, Client } from "@/models";
 import { toast } from "sonner";
 import { PageHeader, SearchInput, FilterBar, LoadingState, StatusBadge, EntityAvatar, ResponsiveTable, ConfirmDialog } from "@/components/shared";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export default function Forms() {
   const navigate = useNavigate();
+  const { canCreateForms, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
   const [forms, setForms] = useState<Form[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
@@ -46,7 +48,14 @@ export default function Forms() {
   async function loadData() {
     try {
       const [formsData, clientsData] = await Promise.all([formService.getForms(), clientService.getClients()]);
-      setForms(formsData); setClients(clientsData);
+      // Filtrar formularios según el rol del usuario
+      const accessibleForms = filterByClientAccess(formsData);
+      setForms(accessibleForms);
+      // Filtrar clientes visibles en el dropdown
+      const accessibleClients = hasGlobalAccess
+        ? clientsData
+        : clientsData.filter((c) => accessibleForms.some((f) => f.clientId === c.id));
+      setClients(accessibleClients);
     } catch (error) { toast.error("Error al cargar formularios"); } finally { setLoading(false); }
   }
 
@@ -92,11 +101,13 @@ export default function Forms() {
         title="Gestión de Formularios"
         description="Administra las plantillas de formularios operativos"
         actions={
-          <Button onClick={() => navigate("/forms/builder")}>
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Nuevo Formulario</span>
-            <span className="sm:hidden">Nuevo</span>
-          </Button>
+          canCreateForms && (
+            <Button onClick={() => navigate("/forms/builder")}>
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Nuevo Formulario</span>
+              <span className="sm:hidden">Nuevo</span>
+            </Button>
+          )
         }
       />
 
