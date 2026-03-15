@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Save, Building2, Palette, Upload } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, Building2, Palette, Upload, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,26 +14,55 @@ import {
 } from "@/components/ui/select";
 import { SystemConfig } from "@/models";
 import { toast } from "sonner";
-
-const defaultConfig: SystemConfig = {
-  companyName: "SecureOps Platform",
-  companyLogo: "",
-  primaryColor: "#1e3a5f",
-  secondaryColor: "#3b82f6",
-  timezone: "America/Bogota",
-};
+import { firebaseConfigService } from "@/services/firebase/firebaseConfigService";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export default function Settings() {
-  const [config, setConfig] = useState<SystemConfig>(defaultConfig);
+  const [config, setConfig] = useState<SystemConfig | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [retention, setRetention] = useState("365");
+  const [sessionDuration, setSessionDuration] = useState("480");
+  const [language, setLanguage] = useState("es");
+  const { isAdmin } = useRoleAccess();
 
-  // TODO: Cargar/guardar configuración desde Firestore (colección systemConfig)
+  useEffect(() => {
+    firebaseConfigService.getConfig()
+      .then((data) => {
+        setConfig(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error cargando configuración:", err);
+        toast.error("Error al cargar la configuración");
+        setLoading(false);
+      });
+  }, []);
+
   async function handleSave() {
+    if (!config) return;
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Configuración guardada exitosamente");
-    setSaving(false);
+    try {
+      await firebaseConfigService.saveConfig(config);
+      toast.success("Configuración guardada exitosamente");
+    } catch (err: any) {
+      console.error("Error guardando configuración:", err);
+      toast.error("Error al guardar: " + (err.message || "Permisos insuficientes"));
+    } finally {
+      setSaving(false);
+    }
   }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Cargando configuración...</span>
+      </div>
+    );
+  }
+
+  if (!config) return null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -44,11 +73,19 @@ export default function Settings() {
             Administra la configuración general del sistema
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Guardando..." : "Guardar Cambios"}
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {saving ? "Guardando..." : "Guardar Cambios"}
+          </Button>
+        )}
       </div>
+
+      {!isAdmin && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-destructive text-sm">
+          Solo los administradores pueden modificar la configuración del sistema. Estás en modo lectura.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -62,11 +99,20 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="companyName">Nombre de la Empresa</Label>
-              <Input id="companyName" value={config.companyName} onChange={(e) => setConfig({ ...config, companyName: e.target.value })} />
+              <Input
+                id="companyName"
+                value={config.companyName}
+                onChange={(e) => setConfig({ ...config, companyName: e.target.value })}
+                disabled={!isAdmin}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Zona Horaria</Label>
-              <Select value={config.timezone} onValueChange={(value) => setConfig({ ...config, timezone: value })}>
+              <Select
+                value={config.timezone}
+                onValueChange={(value) => setConfig({ ...config, timezone: value })}
+                disabled={!isAdmin}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="America/Bogota">América/Bogotá (GMT-5)</SelectItem>
@@ -88,7 +134,7 @@ export default function Settings() {
                     <Upload className="h-8 w-8" />
                   )}
                 </div>
-                <Button variant="outline" size="sm">Subir Logo</Button>
+                <Button variant="outline" size="sm" disabled={!isAdmin}>Subir Logo</Button>
               </div>
               <p className="text-xs text-muted-foreground">Formatos permitidos: PNG, JPG. Tamaño máximo: 2MB</p>
             </div>
@@ -107,15 +153,39 @@ export default function Settings() {
             <div className="space-y-2">
               <Label htmlFor="primaryColor">Color Primario</Label>
               <div className="flex gap-3">
-                <Input id="primaryColor" type="color" value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="w-16 h-10 p-1 cursor-pointer" />
-                <Input value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="flex-1" />
+                <Input
+                  id="primaryColor"
+                  type="color"
+                  value={config.primaryColor}
+                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                  className="w-16 h-10 p-1 cursor-pointer"
+                  disabled={!isAdmin}
+                />
+                <Input
+                  value={config.primaryColor}
+                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                  className="flex-1"
+                  disabled={!isAdmin}
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="secondaryColor">Color Secundario</Label>
               <div className="flex gap-3">
-                <Input id="secondaryColor" type="color" value={config.secondaryColor} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="w-16 h-10 p-1 cursor-pointer" />
-                <Input value={config.secondaryColor} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="flex-1" />
+                <Input
+                  id="secondaryColor"
+                  type="color"
+                  value={config.secondaryColor}
+                  onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })}
+                  className="w-16 h-10 p-1 cursor-pointer"
+                  disabled={!isAdmin}
+                />
+                <Input
+                  value={config.secondaryColor}
+                  onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })}
+                  className="flex-1"
+                  disabled={!isAdmin}
+                />
               </div>
             </div>
             <Separator />
@@ -141,7 +211,7 @@ export default function Settings() {
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Retención de Registros</Label>
-                <Select defaultValue="365">
+                <Select value={retention} onValueChange={setRetention} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="90">90 días</SelectItem>
@@ -155,7 +225,7 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label>Sesión de Usuario</Label>
-                <Select defaultValue="480">
+                <Select value={sessionDuration} onValueChange={setSessionDuration} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="60">1 hora</SelectItem>
@@ -168,7 +238,7 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label>Idioma del Sistema</Label>
-                <Select defaultValue="es">
+                <Select value={language} onValueChange={setLanguage} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="es">Español</SelectItem>
