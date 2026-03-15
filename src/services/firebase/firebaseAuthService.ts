@@ -16,7 +16,7 @@ import { auth, db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
 import { userConverter } from "@/firebase/converters";
 import { User } from "@/models";
-import { AuthCredentials, AuthResult } from "@/services/authService";
+import { AuthCredentials, AuthResult } from "@/services/serviceAdapter";
 
 const AUTH_STORAGE_KEY = "secureops_auth_user";
 
