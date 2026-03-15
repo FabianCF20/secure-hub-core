@@ -12,16 +12,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockSystemConfig } from "@/data/mockData";
+import { SystemConfig } from "@/models";
 import { toast } from "sonner";
 
+const defaultConfig: SystemConfig = {
+  companyName: "SecureOps Platform",
+  companyLogo: "",
+  primaryColor: "#1e3a5f",
+  secondaryColor: "#3b82f6",
+  timezone: "America/Bogota",
+};
+
 export default function Settings() {
-  const [config, setConfig] = useState(mockSystemConfig);
+  const [config, setConfig] = useState<SystemConfig>(defaultConfig);
   const [saving, setSaving] = useState(false);
 
+  // TODO: Cargar/guardar configuración desde Firestore (colección systemConfig)
   async function handleSave() {
     setSaving(true);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
     toast.success("Configuración guardada exitosamente");
     setSaving(false);
@@ -43,35 +51,23 @@ export default function Settings() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Company Info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
               Datos de la Empresa
             </CardTitle>
-            <CardDescription>
-              Información general que se mostrará en el sistema
-            </CardDescription>
+            <CardDescription>Información general que se mostrará en el sistema</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="companyName">Nombre de la Empresa</Label>
-              <Input
-                id="companyName"
-                value={config.companyName}
-                onChange={(e) => setConfig({ ...config, companyName: e.target.value })}
-              />
+              <Input id="companyName" value={config.companyName} onChange={(e) => setConfig({ ...config, companyName: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Zona Horaria</Label>
-              <Select
-                value={config.timezone}
-                onValueChange={(value) => setConfig({ ...config, timezone: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={config.timezone} onValueChange={(value) => setConfig({ ...config, timezone: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="America/Bogota">América/Bogotá (GMT-5)</SelectItem>
                   <SelectItem value="America/Mexico_City">América/Ciudad de México (GMT-6)</SelectItem>
@@ -92,61 +88,34 @@ export default function Settings() {
                     <Upload className="h-8 w-8" />
                   )}
                 </div>
-                <Button variant="outline" size="sm">
-                  Subir Logo
-                </Button>
+                <Button variant="outline" size="sm">Subir Logo</Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Formatos permitidos: PNG, JPG. Tamaño máximo: 2MB
-              </p>
+              <p className="text-xs text-muted-foreground">Formatos permitidos: PNG, JPG. Tamaño máximo: 2MB</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Theme Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Palette className="h-5 w-5" />
               Personalización Visual
             </CardTitle>
-            <CardDescription>
-              Colores corporativos del sistema
-            </CardDescription>
+            <CardDescription>Colores corporativos del sistema</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="primaryColor">Color Primario</Label>
               <div className="flex gap-3">
-                <Input
-                  id="primaryColor"
-                  type="color"
-                  value={config.primaryColor}
-                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={config.primaryColor}
-                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                  className="flex-1"
-                />
+                <Input id="primaryColor" type="color" value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="w-16 h-10 p-1 cursor-pointer" />
+                <Input value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="flex-1" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="secondaryColor">Color Secundario</Label>
               <div className="flex gap-3">
-                <Input
-                  id="secondaryColor"
-                  type="color"
-                  value={config.secondaryColor}
-                  onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={config.secondaryColor}
-                  onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })}
-                  className="flex-1"
-                />
+                <Input id="secondaryColor" type="color" value={config.secondaryColor} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="w-16 h-10 p-1 cursor-pointer" />
+                <Input value={config.secondaryColor} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="flex-1" />
               </div>
             </div>
             <Separator />
@@ -154,39 +123,26 @@ export default function Settings() {
               <Label>Vista Previa</Label>
               <div className="p-4 rounded-lg border space-y-3">
                 <div className="flex gap-2">
-                  <div
-                    className="h-12 w-12 rounded"
-                    style={{ backgroundColor: config.primaryColor }}
-                  />
-                  <div
-                    className="h-12 w-12 rounded"
-                    style={{ backgroundColor: config.secondaryColor }}
-                  />
+                  <div className="h-12 w-12 rounded" style={{ backgroundColor: config.primaryColor }} />
+                  <div className="h-12 w-12 rounded" style={{ backgroundColor: config.secondaryColor }} />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Los colores se aplicarán en toda la interfaz del sistema
-                </p>
+                <p className="text-xs text-muted-foreground">Los colores se aplicarán en toda la interfaz del sistema</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* System Parameters */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Parámetros del Sistema</CardTitle>
-            <CardDescription>
-              Configuración adicional del comportamiento del sistema
-            </CardDescription>
+            <CardDescription>Configuración adicional del comportamiento del sistema</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Retención de Registros</Label>
                 <Select defaultValue="365">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="90">90 días</SelectItem>
                     <SelectItem value="180">180 días</SelectItem>
@@ -195,16 +151,12 @@ export default function Settings() {
                     <SelectItem value="unlimited">Sin límite</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Tiempo que se conservan los registros
-                </p>
+                <p className="text-xs text-muted-foreground">Tiempo que se conservan los registros</p>
               </div>
               <div className="space-y-2">
                 <Label>Sesión de Usuario</Label>
                 <Select defaultValue="480">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="60">1 hora</SelectItem>
                     <SelectItem value="240">4 horas</SelectItem>
@@ -212,25 +164,19 @@ export default function Settings() {
                     <SelectItem value="1440">24 horas</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Duración máxima de la sesión
-                </p>
+                <p className="text-xs text-muted-foreground">Duración máxima de la sesión</p>
               </div>
               <div className="space-y-2">
                 <Label>Idioma del Sistema</Label>
                 <Select defaultValue="es">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="es">Español</SelectItem>
                     <SelectItem value="en">English</SelectItem>
                     <SelectItem value="pt">Português</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Idioma de la interfaz
-                </p>
+                <p className="text-xs text-muted-foreground">Idioma de la interfaz</p>
               </div>
             </div>
           </CardContent>

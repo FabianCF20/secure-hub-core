@@ -1,15 +1,13 @@
 import { DashboardStats } from "@/models";
-import { clientService } from "./clientService";
-import { userService } from "./userService";
-import { formService } from "./formService";
-import { recordService } from "./recordService";
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import {
+  activeClientService as clientService,
+  activeUserService as userService,
+  activeFormService as formService,
+  activeRecordService as recordService,
+} from "@/services/serviceAdapter";
 
 export const dashboardService = {
   async getStats(): Promise<DashboardStats> {
-    await delay(100);
-    
     const [clients, users, forms, records, recordsToday, pendingRecords] = await Promise.all([
       clientService.getClients(),
       userService.getUsers(),
@@ -30,8 +28,6 @@ export const dashboardService = {
   },
 
   async getRecordsByClientChart(): Promise<{ name: string; value: number }[]> {
-    await delay(100);
-    
     const [clients, records] = await Promise.all([
       clientService.getClients(),
       recordService.getRecords(),
@@ -44,8 +40,6 @@ export const dashboardService = {
   },
 
   async getRecordsByFormChart(): Promise<{ name: string; value: number }[]> {
-    await delay(100);
-    
     const [forms, records] = await Promise.all([
       formService.getForms(),
       recordService.getRecords(),
@@ -58,10 +52,8 @@ export const dashboardService = {
   },
 
   async getRecordsByStatusChart(): Promise<{ name: string; value: number; color: string }[]> {
-    await delay(100);
-    
     const records = await recordService.getRecords();
-    
+
     const statusMap = {
       PENDING: { name: "Pendiente", color: "hsl(var(--warning))" },
       SENT: { name: "Enviado", color: "hsl(var(--info))" },
@@ -82,16 +74,16 @@ export const dashboardService = {
     description: string;
     timestamp: string;
   }[]> {
-    await delay(100);
-    
-    const records = await recordService.getRecords();
-    const users = await userService.getUsers();
-    const forms = await formService.getForms();
-    
-    const activities = records.slice(0, 10).map(record => {
+    const [records, users, forms] = await Promise.all([
+      recordService.getRecords(),
+      userService.getUsers(),
+      formService.getForms(),
+    ]);
+
+    return records.slice(0, 10).map(record => {
       const user = users.find(u => u.id === record.userId);
       const form = forms.find(f => f.id === record.formId);
-      
+
       return {
         id: record.id,
         type: "record" as const,
@@ -99,7 +91,5 @@ export const dashboardService = {
         timestamp: record.createdAt,
       };
     });
-
-    return activities;
   },
 };

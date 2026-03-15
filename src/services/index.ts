@@ -1,5 +1,7 @@
-export { clientService } from "./clientService";
-export { userService } from "./userService";
-export { formService } from "./formService";
-export { recordService } from "./recordService";
+export {
+  activeClientService as clientService,
+  activeUserService as userService,
+  activeFormService as formService,
+  activeRecordService as recordService,
+} from "./serviceAdapter";
 export { dashboardService } from "./dashboardService";
