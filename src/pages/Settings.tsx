@@ -82,7 +82,7 @@ export default function Settings() {
       </div>
 
       {!isAdmin && (
-        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-yellow-800 text-sm">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-destructive text-sm">
           Solo los administradores pueden modificar la configuración del sistema. Estás en modo lectura.
         </div>
       )}
