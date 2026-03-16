@@ -46,17 +46,21 @@ export const firebaseUserService = {
   async createUser(userData: Omit<User, "id"> & { password?: string }): Promise<User> {
     const { password, ...userFields } = userData;
 
-    // Paso 1: Crear cuenta en Firebase Auth
+    // Paso 1: Crear cuenta en Firebase Auth (usa instancia secundaria)
     if (!password) throw new Error("La contraseña es obligatoria para crear un usuario");
     const authUid = await firebaseAuthService.createAuthAccount(userData.email, password);
 
     // Paso 2: Crear documento en Firestore con el mismo UID
-    const newUser: User = { ...userFields, id: authUid };
-    const userDocRef = doc(db!, COLLECTIONS.USERS, authUid).withConverter(userConverter);
-    await setDoc(userDocRef, newUser);
-
-    console.log(`[Firebase] Usuario creado en Auth + Firestore con UID: ${authUid}`);
-    return newUser;
+    try {
+      const newUser: User = { ...userFields, id: authUid };
+      const userDocRef = doc(db!, COLLECTIONS.USERS, authUid).withConverter(userConverter);
+      await setDoc(userDocRef, newUser);
+      console.log(`[Firebase] Usuario creado en Auth + Firestore con UID: ${authUid}`);
+      return newUser;
+    } catch (error) {
+      console.error(`[Firebase] Error al guardar en Firestore:`, error);
+      throw error;
+    }
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {

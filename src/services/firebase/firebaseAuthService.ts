@@ -108,11 +108,17 @@ export const firebaseAuthService = {
    * Crear cuenta en Firebase Auth (usado al crear usuarios desde el panel)
    */
   async createAuthAccount(email: string, password: string): Promise<string> {
-    if (!auth) throw new Error("Firebase no está configurado");
+    const { secondaryAuth } = await import("@/firebase/config");
+    if (!secondaryAuth) throw new Error("Firebase no está configurado");
 
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    console.log(`[Firebase Auth] Cuenta creada, UID: ${userCredential.user.uid}`);
-    return userCredential.user.uid;
+    // Usar instancia secundaria para NO cerrar la sesión del admin actual
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const uid = userCredential.user.uid;
+    console.log(`[Firebase Auth] Cuenta creada con instancia secundaria, UID: ${uid}`);
+
+    // Cerrar sesión en la instancia secundaria (no afecta al admin)
+    await signOut(secondaryAuth);
+    return uid;
   },
 
   /**
