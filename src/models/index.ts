@@ -109,6 +109,9 @@ export interface SystemConfig {
   primaryColor: string;
   secondaryColor: string;
   timezone: string;
+  retentionDays: string;
+  sessionDurationMinutes: string;
+  language: string;
 }
 
 // ==========================================

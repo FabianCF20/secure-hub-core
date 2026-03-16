@@ -2,12 +2,12 @@
 // FIREBASE AUTH SERVICE
 // ==========================================
 // Implementación real de autenticación con Firebase Auth.
-// Se activa automáticamente cuando USE_FIREBASE = true.
 
 import {
   signInWithEmailAndPassword,
   signOut,
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
@@ -16,114 +16,130 @@ import { auth, db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
 import { userConverter } from "@/firebase/converters";
 import { User } from "@/models";
+import { getErrorMessage, logError } from "@/lib/firebase-error";
 import { AuthCredentials, AuthResult } from "@/services/serviceAdapter";
 
 const AUTH_STORAGE_KEY = "secureops_auth_user";
 
+function storeUserProfile(user: User) {
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+}
+
+function clearStoredUserProfile() {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 export const firebaseAuthService = {
-  /**
-   * Login con Firebase Auth + carga de perfil desde Firestore
-   */
+  async getUserProfile(uid: string): Promise<User | null> {
+    if (!db) throw new Error("Firestore no está configurado correctamente.");
+
+    const userDocRef = doc(db, COLLECTIONS.USERS, uid).withConverter(userConverter);
+    const userSnap = await getDoc(userDocRef);
+
+    if (!userSnap.exists()) {
+      clearStoredUserProfile();
+      return null;
+    }
+
+    const userProfile = userSnap.data();
+    storeUserProfile(userProfile);
+    return userProfile;
+  },
+
   async login(credentials: AuthCredentials): Promise<AuthResult> {
     if (!auth || !db) {
-      return { success: false, error: "Firebase no está configurado" };
+      return { success: false, error: "Firebase no está configurado correctamente." };
     }
 
     try {
       const { email, password } = credentials;
       console.log(`[Firebase Auth] Intentando login para: ${email}`);
 
-      // Paso 1: Autenticar con Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       console.log(`[Firebase Auth] Login exitoso, UID: ${firebaseUser.uid}`);
 
-      // Paso 2: Obtener perfil desde Firestore usando el UID
-      const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid).withConverter(userConverter);
-      const userSnap = await getDoc(userDocRef);
+      const userProfile = await this.getUserProfile(firebaseUser.uid);
 
-      if (!userSnap.exists()) {
-        console.log(`[Firebase Auth] Perfil no encontrado en Firestore`);
+      if (!userProfile) {
         await signOut(auth);
-        return { success: false, error: "Perfil de usuario no encontrado en la base de datos" };
+        return { success: false, error: "El usuario existe en Firebase Auth pero no tiene perfil en Firestore." };
       }
-
-      const userProfile = userSnap.data();
 
       if (!userProfile.isActive) {
-        console.log(`[Firebase Auth] Usuario desactivado`);
         await signOut(auth);
-        return { success: false, error: "Tu cuenta está desactivada. Contacta al administrador" };
+        return { success: false, error: "Tu cuenta está desactivada. Contacta al administrador." };
       }
 
-      // Guardar perfil en localStorage para acceso rápido
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile));
       console.log(`[Firebase Auth] Login completo: ${userProfile.fullName} (${userProfile.role})`);
-
       return { success: true, user: userProfile };
-    } catch (error: any) {
-      console.error(`[Firebase Auth] Error:`, error.code);
-      
-      const errorMessages: Record<string, string> = {
-        "auth/user-not-found": "No existe una cuenta con este correo electrónico",
-        "auth/wrong-password": "Contraseña incorrecta",
-        "auth/invalid-email": "Correo electrónico inválido",
-        "auth/user-disabled": "Tu cuenta está desactivada",
-        "auth/too-many-requests": "Demasiados intentos. Intenta más tarde",
-        "auth/invalid-credential": "Credenciales inválidas",
-      };
-
+    } catch (error) {
+      logError("firebaseAuthService.login", error);
       return {
         success: false,
-        error: errorMessages[error.code] || "Error de autenticación: " + error.message,
+        error: getErrorMessage(error, "No fue posible iniciar sesión en Firebase."),
       };
     }
   },
 
-  /**
-   * Cerrar sesión en Firebase Auth
-   */
   async logout(): Promise<void> {
     if (auth) {
       await signOut(auth);
     }
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    console.log(`[Firebase Auth] Sesión cerrada`);
+
+    clearStoredUserProfile();
+    console.log("[Firebase Auth] Sesión cerrada");
   },
 
-  /**
-   * Recuperar sesión almacenada
-   */
   getStoredUser(): User | null {
     try {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       return stored ? (JSON.parse(stored) as User) : null;
     } catch {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      clearStoredUserProfile();
       return null;
     }
   },
 
-  /**
-   * Crear cuenta en Firebase Auth (usado al crear usuarios desde el panel)
-   */
+  clearStoredUser() {
+    clearStoredUserProfile();
+  },
+
   async createAuthAccount(email: string, password: string): Promise<string> {
     const { secondaryAuth } = await import("@/firebase/config");
-    if (!secondaryAuth) throw new Error("Firebase no está configurado");
+    if (!secondaryAuth) throw new Error("Firebase Auth secundario no está configurado.");
 
-    // Usar instancia secundaria para NO cerrar la sesión del admin actual
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const uid = userCredential.user.uid;
     console.log(`[Firebase Auth] Cuenta creada con instancia secundaria, UID: ${uid}`);
-
-    // Cerrar sesión en la instancia secundaria (no afecta al admin)
-    await signOut(secondaryAuth);
     return uid;
   },
 
-  /**
-   * Listener de cambios de estado de autenticación
-   */
+  async finalizeSecondaryAuthAccount(): Promise<void> {
+    const { secondaryAuth } = await import("@/firebase/config");
+    if (secondaryAuth?.currentUser) {
+      await signOut(secondaryAuth);
+    }
+  },
+
+  async rollbackSecondaryAuthAccount(): Promise<void> {
+    const { secondaryAuth } = await import("@/firebase/config");
+
+    try {
+      if (secondaryAuth?.currentUser) {
+        await deleteUser(secondaryAuth.currentUser);
+      }
+    } catch (error) {
+      logError("firebaseAuthService.rollbackSecondaryAuthAccount.deleteUser", error);
+    } finally {
+      if (secondaryAuth?.currentUser) {
+        await signOut(secondaryAuth).catch((error) => {
+          logError("firebaseAuthService.rollbackSecondaryAuthAccount.signOut", error);
+        });
+      }
+    }
+  },
+
   onAuthStateChanged(callback: (user: FirebaseUser | null) => void): () => void {
     if (!auth) return () => {};
     return onAuthStateChanged(auth, callback);

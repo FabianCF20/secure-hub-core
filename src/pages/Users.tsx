@@ -20,6 +20,7 @@ import { userService, clientService } from "@/services";
 import { User, Client, UserRole } from "@/models";
 import { toast } from "sonner";
 import { PageHeader, SearchInput, FilterBar, LoadingState, StatusBadge, EntityAvatar, ResponsiveTable, ConfirmDialog } from "@/components/shared";
+import { showActionError } from "@/lib/ui-feedback";
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrador",
@@ -83,7 +84,7 @@ export default function Users() {
       setUsers(usersData);
       setClients(clientsData);
     } catch (error) {
-      toast.error("Error al cargar datos");
+      showActionError("Users.loadData", error, "No se pudieron cargar los usuarios y clientes.");
     } finally {
       setLoading(false);
     }
@@ -121,6 +122,14 @@ export default function Users() {
   }
 
   async function handleSave() {
+    if (!formData.fullName.trim()) {
+      toast.error("Debes ingresar el nombre completo del usuario.");
+      return;
+    }
+    if (!formData.email.trim()) {
+      toast.error("Debes ingresar el correo electrónico del usuario.");
+      return;
+    }
     if (!editingUser && (!formData.email || !formData.password)) {
       toast.error("Email y contraseña son obligatorios");
       return;
@@ -136,12 +145,12 @@ export default function Users() {
         toast.success("Usuario actualizado");
       } else {
         await userService.createUser(formData);
-        toast.success("Usuario creado en Auth y Base de Datos");
+        toast.success("Usuario creado correctamente en Firebase Auth y Firestore");
       }
       setDialogOpen(false);
       loadData();
     } catch (error) {
-      toast.error("Error al guardar usuario");
+      showActionError("Users.handleSave", error, "No se pudo guardar el usuario.");
     }
   }
 
@@ -151,7 +160,7 @@ export default function Users() {
       toast.success(user.isActive ? "Usuario desactivado" : "Usuario activado");
       loadData();
     } catch (error) {
-      toast.error("Error al cambiar estado");
+      showActionError("Users.toggleStatus", error, "No se pudo cambiar el estado del usuario.");
     }
   }
 
@@ -223,7 +232,6 @@ export default function Users() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Mobile card view */}
           <div className="space-y-3 md:hidden">
             {filteredUsers.map((user) => (
               <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
@@ -256,7 +264,6 @@ export default function Users() {
             ))}
           </div>
 
-          {/* Desktop table view */}
           <ResponsiveTable>
             <div className="hidden md:block">
               <Table>
@@ -381,3 +388,4 @@ export default function Users() {
     </div>
   );
 }
+
