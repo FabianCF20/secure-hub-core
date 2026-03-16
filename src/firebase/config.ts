@@ -27,4 +27,8 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// Segunda instancia de Firebase para crear usuarios sin afectar la sesión actual
+export const secondaryApp = initializeApp(firebaseConfig, "secondary");
+export const secondaryAuth = getAuth(secondaryApp);
+
 console.log("[Firebase] Inicializado con proyecto:", firebaseConfig.projectId);
