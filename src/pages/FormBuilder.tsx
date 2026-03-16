@@ -46,17 +46,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formService, clientService } from "@/services";
-import { Form, FormField, FieldType, Client } from "@/models";
+import { FormField, FieldType, Client } from "@/models";
 import { toast } from "sonner";
+import { showActionError } from "@/lib/ui-feedback";
 
 const fieldTypeConfig: Record<FieldType, { icon: React.ElementType; label: string; color: string }> = {
-  text: { icon: Type, label: "Texto", color: "bg-blue-100 text-blue-700" },
-  number: { icon: Hash, label: "Número", color: "bg-green-100 text-green-700" },
-  select: { icon: List, label: "Selección", color: "bg-purple-100 text-purple-700" },
-  checkbox: { icon: CheckSquare, label: "Checkbox", color: "bg-orange-100 text-orange-700" },
-  photo: { icon: Camera, label: "Foto", color: "bg-pink-100 text-pink-700" },
-  signature: { icon: PenTool, label: "Firma", color: "bg-indigo-100 text-indigo-700" },
-  qr: { icon: QrCode, label: "Código QR", color: "bg-teal-100 text-teal-700" },
+  text: { icon: Type, label: "Texto", color: "bg-muted text-foreground" },
+  number: { icon: Hash, label: "Número", color: "bg-secondary text-secondary-foreground" },
+  select: { icon: List, label: "Selección", color: "bg-accent text-accent-foreground" },
+  checkbox: { icon: CheckSquare, label: "Checkbox", color: "bg-muted text-foreground" },
+  photo: { icon: Camera, label: "Foto", color: "bg-secondary text-secondary-foreground" },
+  signature: { icon: PenTool, label: "Firma", color: "bg-accent text-accent-foreground" },
+  qr: { icon: QrCode, label: "Código QR", color: "bg-muted text-foreground" },
 };
 
 export default function FormBuilder() {
@@ -76,7 +77,6 @@ export default function FormBuilder() {
   const [fieldSheetOpen, setFieldSheetOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Field form state
   const [fieldForm, setFieldForm] = useState({
     type: "text" as FieldType,
     label: "",
@@ -95,21 +95,25 @@ export default function FormBuilder() {
   async function loadData() {
     try {
       const clientsData = await clientService.getClients();
-      setClients(clientsData.filter(c => c.isActive));
+      setClients(clientsData.filter((c) => c.isActive));
 
       if (isEditing && formId) {
         const form = await formService.getFormById(formId);
-        if (form) {
-          setFormName(form.name);
-          setSelectedClientId(form.clientId);
-          setIsActive(form.isActive);
-          setFields(form.fields);
+        if (!form) {
+          toast.error("El formulario que intentas editar no existe o ya no está disponible.");
+          navigate("/forms");
+          return;
         }
+
+        setFormName(form.name);
+        setSelectedClientId(form.clientId);
+        setIsActive(form.isActive);
+        setFields(form.fields);
       } else if (clientsData.length > 0) {
         setSelectedClientId(clientsData[0].id);
       }
     } catch (error) {
-      toast.error("Error al cargar datos");
+      showActionError("FormBuilder.loadData", error, "No se pudieron cargar los datos necesarios para el formulario.");
     } finally {
       setLoading(false);
     }
@@ -146,14 +150,24 @@ export default function FormBuilder() {
   }
 
   function saveField() {
+    if (!fieldForm.label.trim()) {
+      toast.error("Cada campo debe tener un nombre o etiqueta.");
+      return;
+    }
+
+    if (fieldForm.type === "select" && !fieldForm.options.trim()) {
+      toast.error("Los campos de selección deben tener al menos una opción.");
+      return;
+    }
+
     const newField: FormField = {
-      id: editingField?.id || `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: editingField?.id || `field_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
       type: fieldForm.type,
-      label: fieldForm.label,
+      label: fieldForm.label.trim(),
       required: fieldForm.required,
       helperText: fieldForm.helperText || undefined,
       options: fieldForm.type === "select" && fieldForm.options
-        ? fieldForm.options.split(",").map(o => o.trim()).filter(Boolean)
+        ? fieldForm.options.split(",").map((o) => o.trim()).filter(Boolean)
         : undefined,
       validations: fieldForm.type === "number" || fieldForm.type === "text"
         ? {
@@ -165,7 +179,7 @@ export default function FormBuilder() {
     };
 
     if (editingField) {
-      setFields(fields.map(f => f.id === editingField.id ? newField : f));
+      setFields(fields.map((f) => f.id === editingField.id ? newField : f));
     } else {
       setFields([...fields, newField]);
     }
@@ -175,7 +189,7 @@ export default function FormBuilder() {
   }
 
   function deleteField(fieldId: string) {
-    setFields(fields.filter(f => f.id !== fieldId));
+    setFields(fields.filter((f) => f.id !== fieldId));
     toast.success("Campo eliminado");
   }
 
@@ -206,7 +220,7 @@ export default function FormBuilder() {
     try {
       if (isEditing && formId) {
         await formService.updateForm(formId, {
-          name: formName,
+          name: formName.trim(),
           clientId: selectedClientId,
           isActive,
           fields,
@@ -214,7 +228,7 @@ export default function FormBuilder() {
         toast.success("Formulario actualizado");
       } else {
         await formService.createForm({
-          name: formName,
+          name: formName.trim(),
           clientId: selectedClientId,
           isActive,
           fields,
@@ -223,7 +237,7 @@ export default function FormBuilder() {
       }
       navigate("/forms");
     } catch (error) {
-      toast.error("Error al guardar formulario");
+      showActionError("FormBuilder.handleSave", error, "No se pudo guardar el formulario en Firebase.");
     } finally {
       setSaving(false);
     }
@@ -236,6 +250,7 @@ export default function FormBuilder() {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6 animate-fade-in">

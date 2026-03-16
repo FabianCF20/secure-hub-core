@@ -16,14 +16,12 @@ import { SystemConfig } from "@/models";
 import { toast } from "sonner";
 import { firebaseConfigService } from "@/services/firebase/firebaseConfigService";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { showActionError } from "@/lib/ui-feedback";
 
 export default function Settings() {
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [retention, setRetention] = useState("365");
-  const [sessionDuration, setSessionDuration] = useState("480");
-  const [language, setLanguage] = useState("es");
   const { isAdmin } = useRoleAccess();
 
   useEffect(() => {
@@ -32,9 +30,8 @@ export default function Settings() {
         setConfig(data);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error cargando configuración:", err);
-        toast.error("Error al cargar la configuración");
+      .catch((error) => {
+        showActionError("Settings.loadConfig", error, "No se pudo cargar la configuración del sistema.");
         setLoading(false);
       });
   }, []);
@@ -45,9 +42,8 @@ export default function Settings() {
     try {
       await firebaseConfigService.saveConfig(config);
       toast.success("Configuración guardada exitosamente");
-    } catch (err: any) {
-      console.error("Error guardando configuración:", err);
-      toast.error("Error al guardar: " + (err.message || "Permisos insuficientes"));
+    } catch (error) {
+      showActionError("Settings.handleSave", error, "No se pudo guardar la configuración del sistema.");
     } finally {
       setSaving(false);
     }
@@ -134,9 +130,9 @@ export default function Settings() {
                     <Upload className="h-8 w-8" />
                   )}
                 </div>
-                <Button variant="outline" size="sm" disabled={!isAdmin}>Subir Logo</Button>
+                <Button variant="outline" size="sm" disabled>Subir Logo</Button>
               </div>
-              <p className="text-xs text-muted-foreground">Formatos permitidos: PNG, JPG. Tamaño máximo: 2MB</p>
+              <p className="text-xs text-muted-foreground">La subida real de logo aún no está implementada; el resto de la configuración sí se guarda en Firebase.</p>
             </div>
           </CardContent>
         </Card>
@@ -211,7 +207,7 @@ export default function Settings() {
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Retención de Registros</Label>
-                <Select value={retention} onValueChange={setRetention} disabled={!isAdmin}>
+                <Select value={config.retentionDays} onValueChange={(value) => setConfig({ ...config, retentionDays: value })} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="90">90 días</SelectItem>
@@ -225,7 +221,7 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label>Sesión de Usuario</Label>
-                <Select value={sessionDuration} onValueChange={setSessionDuration} disabled={!isAdmin}>
+                <Select value={config.sessionDurationMinutes} onValueChange={(value) => setConfig({ ...config, sessionDurationMinutes: value })} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="60">1 hora</SelectItem>
@@ -238,7 +234,7 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label>Idioma del Sistema</Label>
-                <Select value={language} onValueChange={setLanguage} disabled={!isAdmin}>
+                <Select value={config.language} onValueChange={(value) => setConfig({ ...config, language: value })} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="es">Español</SelectItem>
@@ -255,3 +251,4 @@ export default function Settings() {
     </div>
   );
 }
+

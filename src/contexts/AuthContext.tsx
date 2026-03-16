@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { User } from "@/models";
 import { activeAuthService as authService, type AuthCredentials } from "@/services/serviceAdapter";
+import { logError } from "@/lib/firebase-error";
 
 interface AuthContextType {
   user: User | null;
@@ -16,11 +17,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simula onAuthStateChanged — recupera sesión al cargar
   useEffect(() => {
-    const storedUser = authService.getStoredUser();
-    setUser(storedUser);
-    setIsLoading(false);
+    let isMounted = true;
+
+    const unsubscribe = authService.onAuthStateChanged(async (firebaseUser) => {
+      try {
+        if (!isMounted) return;
+
+        if (!firebaseUser) {
+          authService.clearStoredUser();
+          setUser(null);
+          return;
+        }
+
+        const profile = await authService.getUserProfile(firebaseUser.uid);
+
+        if (!isMounted) return;
+
+        if (!profile) {
+          await authService.logout();
+          setUser(null);
+          return;
+        }
+
+        setUser(profile);
+      } catch (error) {
+        logError("AuthContext.onAuthStateChanged", error);
+        if (isMounted) {
+          authService.clearStoredUser();
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async (credentials: AuthCredentials) => {
