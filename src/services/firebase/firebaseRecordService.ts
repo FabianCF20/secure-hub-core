@@ -8,6 +8,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  addDoc,
   updateDoc,
   query,
   where,
@@ -88,6 +89,16 @@ export const firebaseRecordService = {
       return snapshot.docs.map((doc) => doc.data());
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros por estado.");
+    }
+  },
+
+  async createRecord(record: Omit<Record, "id">): Promise<Record> {
+    try {
+      await ensureFirebaseSession();
+      const docRef = await addDoc(getRecordsRef(), record as Record);
+      return { ...record, id: docRef.id } as Record;
+    } catch (error) {
+      throw createUserFriendlyError(error, "No se pudo guardar el registro en Firestore.");
     }
   },
 

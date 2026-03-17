@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, FileText, Copy, ArrowUpRight, Eye } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Copy, ArrowUpRight, Eye, ClipboardEdit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export default function Forms() {
   const navigate = useNavigate();
-  const { canCreateForms, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
+  const { canCreateForms, isSupervisor, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
   const [forms, setForms] = useState<Form[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
@@ -157,6 +157,9 @@ export default function Forms() {
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="shrink-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}><Eye className="mr-2 h-4 w-4" />Ver / Editar</DropdownMenuItem>
+                      {isSupervisor && form.isActive && (
+                        <DropdownMenuItem onClick={() => navigate(`/forms/fill/${form.id}`)}><ClipboardEdit className="mr-2 h-4 w-4" />Diligenciar</DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => openCloneDialog(form)}><Copy className="mr-2 h-4 w-4" />Clonar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => incrementVersion(form)}><ArrowUpRight className="mr-2 h-4 w-4" />Incrementar Versión</DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -208,6 +211,9 @@ export default function Forms() {
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}><Eye className="mr-2 h-4 w-4" />Ver / Editar</DropdownMenuItem>
+                            {isSupervisor && form.isActive && (
+                              <DropdownMenuItem onClick={() => navigate(`/forms/fill/${form.id}`)}><ClipboardEdit className="mr-2 h-4 w-4" />Diligenciar</DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openCloneDialog(form)}><Copy className="mr-2 h-4 w-4" />Clonar</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => incrementVersion(form)}><ArrowUpRight className="mr-2 h-4 w-4" />Incrementar Versión</DropdownMenuItem>
                             <DropdownMenuSeparator />
