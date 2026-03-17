@@ -11,6 +11,7 @@ import Clients from "./pages/Clients";
 import Users from "./pages/Users";
 import Forms from "./pages/Forms";
 import FormBuilder from "./pages/FormBuilder";
+import FormFill from "./pages/FormFill";
 import Records from "./pages/Records";
 import RecordDetail from "./pages/RecordDetail";
 import Reports from "./pages/Reports";
