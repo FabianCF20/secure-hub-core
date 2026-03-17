@@ -16,8 +16,8 @@ import { Client, User, Form, Record, SystemConfig } from "@/models";
  * Elimina recursivamente todas las propiedades con valor `undefined`
  * para evitar el error `invalid-argument` de Firestore.
  */
-function stripUndefined(obj: Record<string, any>): Record<string, any> {
-  const clean: Record<string, any> = {};
+function stripUndefined(obj: { [key: string]: any }): { [key: string]: any } {
+  const clean: { [key: string]: any } = {};
   for (const [key, value] of Object.entries(obj)) {
     if (value === undefined) continue;
     if (Array.isArray(value)) {
