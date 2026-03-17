@@ -62,6 +62,10 @@ const App = () => (
                 <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
                   <FormBuilder />
                 </ProtectedRoute>
+              <Route path="/forms/fill/:formId" element={
+                <ProtectedRoute allowedRoles={["SUPERVISOR"]}>
+                  <FormFill />
+                </ProtectedRoute>
               } />
               <Route path="/records" element={
                 <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
