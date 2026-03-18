@@ -12,6 +12,8 @@ import {
   updateDoc,
   query,
   orderBy,
+  where,
+  documentId,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
@@ -76,6 +78,24 @@ export const firebaseClientService = {
       return updated;
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudo actualizar el cliente en Firestore.");
+    }
+  },
+
+  async getClientsByIds(clientIds: string[]): Promise<Client[]> {
+    if (!clientIds.length) return [];
+    try {
+      await ensureFirebaseSession();
+      // Firestore "in" queries support max 30 items
+      const results: Client[] = [];
+      for (let i = 0; i < clientIds.length; i += 30) {
+        const batch = clientIds.slice(i, i + 30);
+        const q = query(getClientsRef(), where(documentId(), "in", batch));
+        const snapshot = await getDocs(q);
+        results.push(...snapshot.docs.map((d) => d.data()));
+      }
+      return results;
+    } catch (error) {
+      throw createUserFriendlyError(error, "No se pudieron cargar los clientes asignados.");
     }
   },
 

@@ -25,7 +25,7 @@ const statusConfig: { [key in RecordStatus]: { label: string; className: string 
 
 export default function Records() {
   const navigate = useNavigate();
-  const { canValidate, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
+  const { canValidate, hasGlobalAccess, clientIds: userClientIds, isSupervisor, user } = useRoleAccess();
   const [records, setRecords] = useState<RecordType[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [forms, setForms] = useState<Form[]>([]);
@@ -46,8 +46,8 @@ export default function Records() {
     if (filterStatus !== "all") filtered = filtered.filter((r) => r.status === filterStatus);
     if (searchQuery) {
       filtered = filtered.filter((r) => {
-        const user = users.find((u) => u.id === r.userId);
-        return user?.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+        const u = users.find((u) => u.id === r.userId);
+        return u?.fullName.toLowerCase().includes(searchQuery.toLowerCase());
       });
     }
     setFilteredRecords(filtered);
@@ -55,18 +55,38 @@ export default function Records() {
 
   async function loadData() {
     try {
-      const [recordsData, clientsData, formsData, usersData] = await Promise.all([
-        recordService.getRecords(), clientService.getClients(), formService.getForms(), userService.getUsers(),
-      ]);
-      // Filtrar registros según el rol del usuario
-      const accessibleRecords = filterByClientAccess(recordsData);
-      setRecords(accessibleRecords);
-      const accessibleClients = hasGlobalAccess
-        ? clientsData
-        : clientsData.filter((c) => accessibleRecords.some((r) => r.clientId === c.id));
-      setClients(accessibleClients);
+      let recordsData: RecordType[];
+      let clientsData: Client[];
+      let formsData: Form[];
+
+      if (hasGlobalAccess) {
+        [recordsData, clientsData, formsData] = await Promise.all([
+          recordService.getRecords(),
+          clientService.getClients(),
+          formService.getForms(),
+        ]);
+      } else if (isSupervisor && user) {
+        [recordsData, clientsData, formsData] = await Promise.all([
+          recordService.getRecordsByUser(user.id),
+          clientService.getClientsByIds(userClientIds),
+          formService.getFormsByClientIds(userClientIds),
+        ]);
+      } else {
+        [recordsData, clientsData, formsData] = await Promise.all([
+          recordService.getRecordsByClientIds(userClientIds),
+          clientService.getClientsByIds(userClientIds),
+          formService.getFormsByClientIds(userClientIds),
+        ]);
+      }
+
+      setRecords(recordsData);
+      setClients(clientsData);
       setForms(formsData);
-      setUsers(usersData);
+      // Users: only load if admin/central
+      if (hasGlobalAccess) {
+        const usersData = await userService.getUsers();
+        setUsers(usersData);
+      }
     } catch (error) { toast.error("Error al cargar registros"); } finally { setLoading(false); }
   }
 

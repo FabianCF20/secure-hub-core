@@ -1,4 +1,4 @@
-import { DashboardStats } from "@/models";
+import { DashboardStats, User } from "@/models";
 import {
   activeClientService as clientService,
   activeUserService as userService,
@@ -6,53 +6,87 @@ import {
   activeRecordService as recordService,
 } from "@/services/serviceAdapter";
 
+function isGlobalRole(role?: string) {
+  return role === "ADMIN" || role === "CENTRAL";
+}
+
 export const dashboardService = {
-  async getStats(): Promise<DashboardStats> {
-    const [clients, users, forms, records, recordsToday, pendingRecords] = await Promise.all([
-      clientService.getClients(),
-      userService.getUsers(),
-      formService.getForms(),
-      recordService.getRecords(),
-      recordService.getRecordsToday(),
-      recordService.getPendingRecords(),
+  async getStats(currentUser?: User | null): Promise<DashboardStats> {
+    const global = isGlobalRole(currentUser?.role);
+    const clientIds = currentUser?.clientIds ?? [];
+
+    const [clients, forms, records] = await Promise.all([
+      global ? clientService.getClients() : clientService.getClientsByIds(clientIds),
+      global ? formService.getForms() : formService.getFormsByClientIds(clientIds),
+      global
+        ? recordService.getRecords()
+        : currentUser?.role === "SUPERVISOR"
+          ? recordService.getRecordsByUser(currentUser.id)
+          : recordService.getRecordsByClientIds(clientIds),
     ]);
 
+    // Users count: only admins can list all users
+    let totalUsers = 0;
+    if (currentUser?.role === "ADMIN") {
+      const users = await userService.getUsers();
+      totalUsers = users.filter((u) => u.isActive).length;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const recordsToday = records.filter((r) => {
+      const d = new Date(r.createdAt);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
+    });
+
+    const pendingRecords = records.filter(
+      (r) => r.status === "PENDING" || r.status === "SENT"
+    );
+
     return {
-      totalClients: clients.filter(c => c.isActive).length,
-      totalUsers: users.filter(u => u.isActive).length,
-      totalForms: forms.filter(f => f.isActive).length,
+      totalClients: clients.filter((c) => c.isActive).length,
+      totalUsers,
+      totalForms: forms.filter((f) => f.isActive).length,
       totalRecords: records.length,
       recordsToday: recordsToday.length,
       pendingApproval: pendingRecords.length,
     };
   },
 
-  async getRecordsByClientChart(): Promise<{ name: string; value: number }[]> {
+  async getRecordsByClientChart(
+    currentUser?: User | null
+  ): Promise<{ name: string; value: number }[]> {
+    const global = isGlobalRole(currentUser?.role);
+    const clientIds = currentUser?.clientIds ?? [];
+
     const [clients, records] = await Promise.all([
-      clientService.getClients(),
-      recordService.getRecords(),
+      global ? clientService.getClients() : clientService.getClientsByIds(clientIds),
+      global ? recordService.getRecords() : recordService.getRecordsByClientIds(clientIds),
     ]);
 
-    return clients.map(client => ({
-      name: client.name.length > 20 ? client.name.substring(0, 20) + "..." : client.name,
-      value: records.filter(r => r.clientId === client.id).length,
-    })).filter(item => item.value > 0);
+    return clients
+      .map((client) => ({
+        name:
+          client.name.length > 20
+            ? client.name.substring(0, 20) + "..."
+            : client.name,
+        value: records.filter((r) => r.clientId === client.id).length,
+      }))
+      .filter((item) => item.value > 0);
   },
 
-  async getRecordsByFormChart(): Promise<{ name: string; value: number }[]> {
-    const [forms, records] = await Promise.all([
-      formService.getForms(),
-      recordService.getRecords(),
-    ]);
+  async getRecordsByStatusChart(
+    currentUser?: User | null
+  ): Promise<{ name: string; value: number; color: string }[]> {
+    const global = isGlobalRole(currentUser?.role);
+    const clientIds = currentUser?.clientIds ?? [];
 
-    return forms.map(form => ({
-      name: form.name.length > 25 ? form.name.substring(0, 25) + "..." : form.name,
-      value: records.filter(r => r.formId === form.id).length,
-    })).filter(item => item.value > 0);
-  },
-
-  async getRecordsByStatusChart(): Promise<{ name: string; value: number; color: string }[]> {
-    const records = await recordService.getRecords();
+    const records = global
+      ? await recordService.getRecords()
+      : currentUser?.role === "SUPERVISOR"
+        ? await recordService.getRecordsByUser(currentUser.id)
+        : await recordService.getRecordsByClientIds(clientIds);
 
     const statusMap = {
       PENDING: { name: "Pendiente", color: "hsl(var(--warning))" },
@@ -63,31 +97,39 @@ export const dashboardService = {
 
     return Object.entries(statusMap).map(([status, config]) => ({
       name: config.name,
-      value: records.filter(r => r.status === status).length,
+      value: records.filter((r) => r.status === status).length,
       color: config.color,
     }));
   },
 
-  async getRecentActivity(): Promise<{
-    id: string;
-    type: "record" | "form" | "user";
-    description: string;
-    timestamp: string;
-  }[]> {
-    const [records, users, forms] = await Promise.all([
-      recordService.getRecords(),
-      userService.getUsers(),
-      formService.getForms(),
+  async getRecentActivity(
+    currentUser?: User | null
+  ): Promise<
+    {
+      id: string;
+      type: "record" | "form" | "user";
+      description: string;
+      timestamp: string;
+    }[]
+  > {
+    const global = isGlobalRole(currentUser?.role);
+    const clientIds = currentUser?.clientIds ?? [];
+
+    const [records, forms] = await Promise.all([
+      global
+        ? recordService.getRecords()
+        : currentUser?.role === "SUPERVISOR"
+          ? recordService.getRecordsByUser(currentUser.id)
+          : recordService.getRecordsByClientIds(clientIds),
+      global ? formService.getForms() : formService.getFormsByClientIds(clientIds),
     ]);
 
-    return records.slice(0, 10).map(record => {
-      const user = users.find(u => u.id === record.userId);
-      const form = forms.find(f => f.id === record.formId);
-
+    return records.slice(0, 10).map((record) => {
+      const form = forms.find((f) => f.id === record.formId);
       return {
         id: record.id,
         type: "record" as const,
-        description: `${user?.fullName || "Usuario"} completó "${form?.name || "Formulario"}"`,
+        description: `Registro de "${form?.name || "Formulario"}"`,
         timestamp: record.createdAt,
       };
     });

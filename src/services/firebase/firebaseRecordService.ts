@@ -132,4 +132,21 @@ export const firebaseRecordService = {
     const records = await this.getRecords();
     return records.filter((r) => r.status === "PENDING" || r.status === "SENT");
   },
+
+  async getRecordsByClientIds(clientIds: string[]): Promise<Record[]> {
+    if (!clientIds.length) return [];
+    try {
+      await ensureFirebaseSession();
+      const results: Record[] = [];
+      for (let i = 0; i < clientIds.length; i += 30) {
+        const batch = clientIds.slice(i, i + 30);
+        const q = query(getRecordsRef(), where("clientId", "in", batch), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        results.push(...snapshot.docs.map((d) => d.data()));
+      }
+      return results;
+    } catch (error) {
+      throw createUserFriendlyError(error, "No se pudieron cargar los registros asignados.");
+    }
+  },
 };
