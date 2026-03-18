@@ -47,15 +47,24 @@ export default function Forms() {
 
   async function loadData() {
     try {
-      const [formsData, clientsData] = await Promise.all([formService.getForms(), clientService.getClients()]);
-      // Filtrar formularios según el rol del usuario
-      const accessibleForms = filterByClientAccess(formsData);
-      setForms(accessibleForms);
-      // Filtrar clientes visibles en el dropdown
-      const accessibleClients = hasGlobalAccess
-        ? clientsData
-        : clientsData.filter((c) => accessibleForms.some((f) => f.clientId === c.id));
-      setClients(accessibleClients);
+      let formsData: Form[];
+      let clientsData: Client[];
+
+      if (hasGlobalAccess) {
+        [formsData, clientsData] = await Promise.all([
+          formService.getForms(),
+          clientService.getClients(),
+        ]);
+      } else {
+        const userClientIds = clientIds;
+        [formsData, clientsData] = await Promise.all([
+          formService.getFormsByClientIds(userClientIds),
+          clientService.getClientsByIds(userClientIds),
+        ]);
+      }
+
+      setForms(formsData);
+      setClients(clientsData);
     } catch (error) { toast.error("Error al cargar formularios"); } finally { setLoading(false); }
   }
 

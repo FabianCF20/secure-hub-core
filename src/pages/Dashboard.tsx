@@ -72,6 +72,7 @@ function ActivityRow({ activity, formatDate }: { activity: ActivityItem; formatD
 
 /* ── Dashboard Page ── */
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recordsByClient, setRecordsByClient] = useState<{ name: string; value: number }[]>([]);
   const [recordsByStatus, setRecordsByStatus] = useState<{ name: string; value: number; color: string }[]>([]);
@@ -82,10 +83,10 @@ export default function Dashboard() {
     async function loadDashboard() {
       try {
         const [statsData, byClient, byStatus, activity] = await Promise.all([
-          dashboardService.getStats(),
-          dashboardService.getRecordsByClientChart(),
-          dashboardService.getRecordsByStatusChart(),
-          dashboardService.getRecentActivity(),
+          dashboardService.getStats(user),
+          dashboardService.getRecordsByClientChart(user),
+          dashboardService.getRecordsByStatusChart(user),
+          dashboardService.getRecentActivity(user),
         ]);
         setStats(statsData);
         setRecordsByClient(byClient);
@@ -98,7 +99,7 @@ export default function Dashboard() {
       }
     }
     loadDashboard();
-  }, []);
+  }, [user]);
 
   const formatDate = (isoDate: string) =>
     new Date(isoDate).toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
