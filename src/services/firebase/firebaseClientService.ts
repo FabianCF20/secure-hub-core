@@ -12,6 +12,8 @@ import {
   updateDoc,
   query,
   orderBy,
+  where,
+  documentId,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
