@@ -46,6 +46,23 @@ export const firebaseFormService = {
     }
   },
 
+  async getFormsByClientIds(clientIds: string[]): Promise<Form[]> {
+    if (!clientIds.length) return [];
+    try {
+      await ensureFirebaseSession();
+      const results: Form[] = [];
+      for (let i = 0; i < clientIds.length; i += 30) {
+        const batch = clientIds.slice(i, i + 30);
+        const q = query(getFormsRef(), where("clientId", "in", batch));
+        const snapshot = await getDocs(q);
+        results.push(...snapshot.docs.map((d) => d.data()));
+      }
+      return results.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      throw createUserFriendlyError(error, "No se pudieron cargar los formularios asignados.");
+    }
+  },
+
   async getFormById(formId: string): Promise<Form | undefined> {
     try {
       await ensureFirebaseSession();
