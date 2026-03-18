@@ -23,7 +23,7 @@ import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export default function Forms() {
   const navigate = useNavigate();
-  const { canCreateForms, isSupervisor, filterByClientAccess, hasGlobalAccess } = useRoleAccess();
+  const { canCreateForms, isSupervisor, hasGlobalAccess, clientIds: userClientIds } = useRoleAccess();
   const [forms, setForms] = useState<Form[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredForms, setFilteredForms] = useState<Form[]>([]);
