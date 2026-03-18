@@ -56,7 +56,7 @@ export default function Forms() {
           clientService.getClients(),
         ]);
       } else {
-        const ids = userClientIds;
+        
         [formsData, clientsData] = await Promise.all([
           formService.getFormsByClientIds(userClientIds),
           clientService.getClientsByIds(userClientIds),
