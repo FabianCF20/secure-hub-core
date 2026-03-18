@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 import { PageHeader, LoadingState } from "@/components/shared";
+import { useAuth } from "@/contexts/AuthContext";
 
 /* ── Stat Card ── */
 interface StatCardProps {
