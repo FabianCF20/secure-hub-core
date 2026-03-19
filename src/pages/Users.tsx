@@ -164,6 +164,27 @@ export default function Users() {
     }
   }
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+  function openDeleteConfirm(user: User) {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function handleDeleteUser() {
+    if (!userToDelete) return;
+    try {
+      await userService.deleteUser(userToDelete.id);
+      toast.success(`Usuario "${userToDelete.fullName}" eliminado permanentemente`);
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+      loadData();
+    } catch (error) {
+      showActionError("Users.handleDeleteUser", error, "No se pudo eliminar el usuario.");
+    }
+  }
+
   if (loading) return <LoadingState message="Cargando usuarios..." />;
 
   return (
