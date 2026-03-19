@@ -336,6 +336,9 @@ export default function Users() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEditDialog(user)}>Editar</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => toggleStatus(user)}>{user.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => openDeleteConfirm(user)}>
+                              <Trash2 className="mr-2 h-4 w-4" />Eliminar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
