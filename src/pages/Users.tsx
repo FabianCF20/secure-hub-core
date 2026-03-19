@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, User as UserIcon } from "lucide-react";
+import { Plus, MoreHorizontal, User as UserIcon, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
