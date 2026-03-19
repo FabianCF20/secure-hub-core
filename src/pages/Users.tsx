@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, User as UserIcon } from "lucide-react";
+import { Plus, MoreHorizontal, User as UserIcon, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,6 +164,27 @@ export default function Users() {
     }
   }
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+  function openDeleteConfirm(user: User) {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function handleDeleteUser() {
+    if (!userToDelete) return;
+    try {
+      await userService.deleteUser(userToDelete.id);
+      toast.success(`Usuario "${userToDelete.fullName}" eliminado permanentemente`);
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+      loadData();
+    } catch (error) {
+      showActionError("Users.handleDeleteUser", error, "No se pudo eliminar el usuario.");
+    }
+  }
+
   if (loading) return <LoadingState message="Cargando usuarios..." />;
 
   return (
@@ -255,9 +276,12 @@ export default function Users() {
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => openEditDialog(user)}>Editar</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => toggleStatus(user)}>{user.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => openDeleteConfirm(user)}>
+                      <Trash2 className="mr-2 h-4 w-4" />Eliminar
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -312,6 +336,9 @@ export default function Users() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEditDialog(user)}>Editar</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => toggleStatus(user)}>{user.isActive ? "Desactivar" : "Activar"}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => openDeleteConfirm(user)}>
+                              <Trash2 className="mr-2 h-4 w-4" />Eliminar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -385,6 +412,15 @@ export default function Users() {
           <Switch id="isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
         </div>
       </ConfirmDialog>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Usuario"
+        description={`¿Estás seguro de que deseas eliminar permanentemente a "${userToDelete?.fullName}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteUser}
+        confirmLabel="Eliminar Permanentemente"
+        variant="destructive"
+      />
     </div>
   );
 }

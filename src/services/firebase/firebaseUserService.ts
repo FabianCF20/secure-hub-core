@@ -115,4 +115,16 @@ export const firebaseUserService = {
     if (!user) throw new Error("El usuario que intentas cambiar de estado no existe.");
     return this.updateUser(userId, { isActive: !user.isActive });
   },
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      await ensureFirebaseSession();
+      const { deleteDoc } = await import("firebase/firestore");
+      const docRef = doc(db!, COLLECTIONS.USERS, userId);
+      await deleteDoc(docRef);
+      console.log(`[Firebase] Usuario eliminado de Firestore: ${userId}`);
+    } catch (error) {
+      throw createUserFriendlyError(error, "No se pudo eliminar el usuario de Firestore.");
+    }
+  },
 };
