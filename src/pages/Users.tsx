@@ -412,6 +412,15 @@ export default function Users() {
           <Switch id="isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
         </div>
       </ConfirmDialog>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar Usuario"
+        description={`¿Estás seguro de que deseas eliminar permanentemente a "${userToDelete?.fullName}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteUser}
+        confirmLabel="Eliminar Permanentemente"
+        variant="destructive"
+      />
     </div>
   );
 }
