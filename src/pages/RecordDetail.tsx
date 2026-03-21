@@ -168,25 +168,31 @@ export default function RecordDetail() {
             <p className="page-description">Detalle del registro diligenciado</p>
           </div>
         </div>
-        {(record.status === "PENDING" || record.status === "SENT") && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-              onClick={() => openActionDialog("REJECTED")}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Rechazar
-            </Button>
-            <Button
-              className="bg-success hover:bg-success/90"
-              onClick={() => openActionDialog("APPROVED")}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              Aprobar
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportRecordCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Descargar
+          </Button>
+          {(record.status === "PENDING" || record.status === "SENT") && (
+            <>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => openActionDialog("REJECTED")}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Rechazar
+              </Button>
+              <Button
+                className="bg-success hover:bg-success/90"
+                onClick={() => openActionDialog("APPROVED")}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Aprobar
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
