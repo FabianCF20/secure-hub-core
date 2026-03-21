@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, User, Building2, Calendar, Check, X, MessageSquare } from "lucide-react";
+import { ArrowLeft, User, Building2, Calendar, Check, X, MessageSquare, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,34 @@ export default function RecordDetail() {
     }
   }
 
+  function exportRecordCSV() {
+    if (!record || !form) return;
+    const rows: string[][] = [];
+    rows.push(["Campo", "Valor"]);
+    rows.push(["Formulario", form.name]);
+    rows.push(["Cliente", client?.name || "—"]);
+    rows.push(["Usuario", user?.fullName || "—"]);
+    rows.push(["Fecha", formatDate(record.createdAt)]);
+    rows.push(["Estado", statusConfig[record.status].label]);
+    rows.push(["Observaciones", record.observations || ""]);
+    rows.push(["", ""]);
+    rows.push(["--- Respuestas ---", ""]);
+    form.fields.forEach((field) => {
+      rows.push([field.label, getAnswerValue(field.id)]);
+    });
+    if (record.evidence.qrValue) rows.push(["Código QR", record.evidence.qrValue]);
+
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${form.name}_${record.id}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Registro descargado exitosamente");
+  }
+
   function formatDate(isoDate: string): string {
     return new Date(isoDate).toLocaleDateString("es-CO", {
       weekday: "long",
@@ -140,25 +168,31 @@ export default function RecordDetail() {
             <p className="page-description">Detalle del registro diligenciado</p>
           </div>
         </div>
-        {(record.status === "PENDING" || record.status === "SENT") && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-              onClick={() => openActionDialog("REJECTED")}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Rechazar
-            </Button>
-            <Button
-              className="bg-success hover:bg-success/90"
-              onClick={() => openActionDialog("APPROVED")}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              Aprobar
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportRecordCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Descargar
+          </Button>
+          {(record.status === "PENDING" || record.status === "SENT") && (
+            <>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => openActionDialog("REJECTED")}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Rechazar
+              </Button>
+              <Button
+                className="bg-success hover:bg-success/90"
+                onClick={() => openActionDialog("APPROVED")}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Aprobar
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
