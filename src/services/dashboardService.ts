@@ -25,7 +25,6 @@ export const dashboardService = {
           : recordService.getRecordsByClientIds(clientIds),
     ]);
 
-    // Users count: only admins can list all users
     let totalUsers = 0;
     if (currentUser?.role === "ADMIN") {
       const users = await userService.getUsers();
@@ -102,6 +101,44 @@ export const dashboardService = {
     }));
   },
 
+  async getMonthlyTrend(
+    currentUser?: User | null
+  ): Promise<{ month: string; registros: number; aprobados: number; rechazados: number }[]> {
+    const global = isGlobalRole(currentUser?.role);
+    const clientIds = currentUser?.clientIds ?? [];
+
+    const records = global
+      ? await recordService.getRecords()
+      : currentUser?.role === "SUPERVISOR"
+        ? await recordService.getRecordsByUser(currentUser.id)
+        : await recordService.getRecordsByClientIds(clientIds);
+
+    const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const now = new Date();
+    const months: { month: string; registros: number; aprobados: number; rechazados: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const label = `${monthNames[month]} ${year}`;
+
+      const monthRecords = records.filter((r) => {
+        const d = new Date(r.createdAt);
+        return d.getFullYear() === year && d.getMonth() === month;
+      });
+
+      months.push({
+        month: label,
+        registros: monthRecords.length,
+        aprobados: monthRecords.filter((r) => r.status === "APPROVED").length,
+        rechazados: monthRecords.filter((r) => r.status === "REJECTED").length,
+      });
+    }
+
+    return months;
+  },
+
   async getRecentActivity(
     currentUser?: User | null
   ): Promise<
@@ -110,6 +147,7 @@ export const dashboardService = {
       type: "record" | "form" | "user";
       description: string;
       timestamp: string;
+      status?: string;
     }[]
   > {
     const global = isGlobalRole(currentUser?.role);
@@ -131,6 +169,7 @@ export const dashboardService = {
         type: "record" as const,
         description: `Registro de "${form?.name || "Formulario"}"`,
         timestamp: record.createdAt,
+        status: record.status,
       };
     });
   },
