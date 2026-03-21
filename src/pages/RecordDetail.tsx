@@ -98,6 +98,34 @@ export default function RecordDetail() {
     }
   }
 
+  function exportRecordCSV() {
+    if (!record || !form) return;
+    const rows: string[][] = [];
+    rows.push(["Campo", "Valor"]);
+    rows.push(["Formulario", form.name]);
+    rows.push(["Cliente", client?.name || "—"]);
+    rows.push(["Usuario", user?.fullName || "—"]);
+    rows.push(["Fecha", formatDate(record.createdAt)]);
+    rows.push(["Estado", statusConfig[record.status].label]);
+    rows.push(["Observaciones", record.observations || ""]);
+    rows.push(["", ""]);
+    rows.push(["--- Respuestas ---", ""]);
+    form.fields.forEach((field) => {
+      rows.push([field.label, getAnswerValue(field.id)]);
+    });
+    if (record.evidence.qrValue) rows.push(["Código QR", record.evidence.qrValue]);
+
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${form.name}_${record.id}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Registro descargado exitosamente");
+  }
+
   function formatDate(isoDate: string): string {
     return new Date(isoDate).toLocaleDateString("es-CO", {
       weekday: "long",
