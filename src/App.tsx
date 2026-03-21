@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MainLayout } from "@/components/layout";
 import Dashboard from "./pages/Dashboard";
@@ -28,69 +29,71 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <MainLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/clients" element={
-                <ProtectedRoute allowedRoles={["ADMIN"]}>
-                  <Clients />
-                </ProtectedRoute>
-              } />
-              <Route path="/users" element={
-                <ProtectedRoute allowedRoles={["ADMIN"]}>
-                  <Users />
-                </ProtectedRoute>
-              } />
-              <Route path="/forms" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
-                  <Forms />
-                </ProtectedRoute>
-              } />
-              <Route path="/forms/builder" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
-                  <FormBuilder />
-                </ProtectedRoute>
-              } />
-              <Route path="/forms/builder/:formId" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
-                  <FormBuilder />
-                </ProtectedRoute>
-              } />
-              <Route path="/forms/fill/:formId" element={
-                <ProtectedRoute allowedRoles={["SUPERVISOR"]}>
-                  <FormFill />
-                </ProtectedRoute>
-              } />
-              <Route path="/records" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
-                  <Records />
-                </ProtectedRoute>
-              } />
-              <Route path="/records/:recordId" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
-                  <RecordDetail />
-                </ProtectedRoute>
-              } />
-              <Route path="/reports" element={
-                <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR"]}>
-                  <Reports />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute allowedRoles={["ADMIN"]}>
-                  <Settings />
-                </ProtectedRoute>
-              } />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <NotificationProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <MainLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/clients" element={
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
+                    <Clients />
+                  </ProtectedRoute>
+                } />
+                <Route path="/users" element={
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
+                    <Users />
+                  </ProtectedRoute>
+                } />
+                <Route path="/forms" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                    <Forms />
+                  </ProtectedRoute>
+                } />
+                <Route path="/forms/builder" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
+                    <FormBuilder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/forms/builder/:formId" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL"]}>
+                    <FormBuilder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/forms/fill/:formId" element={
+                  <ProtectedRoute allowedRoles={["SUPERVISOR"]}>
+                    <FormFill />
+                  </ProtectedRoute>
+                } />
+                <Route path="/records" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                    <Records />
+                  </ProtectedRoute>
+                } />
+                <Route path="/records/:recordId" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                    <RecordDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR"]}>
+                    <Reports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
+                    <Settings />
+                  </ProtectedRoute>
+                } />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

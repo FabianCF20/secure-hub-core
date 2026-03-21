@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { 
-  Building2, Users, FileText, ClipboardList, Clock, AlertCircle, TrendingUp, ArrowRight,
+import {
+  Building2, Users, FileText, ClipboardList, Clock, AlertCircle,
+  TrendingUp, ArrowRight, Activity,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dashboardService } from "@/services";
 import { DashboardStats } from "@/models";
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,
 } from "recharts";
 import { Link } from "react-router-dom";
 import { PageHeader, LoadingState } from "@/components/shared";
@@ -45,12 +48,35 @@ function StatCard({ title, value, icon: Icon, description, variant }: StatCardPr
   );
 }
 
+/* ── Status Badge ── */
+function StatusDot({ status }: { status?: string }) {
+  const colors: Record<string, string> = {
+    PENDING: "bg-warning",
+    SENT: "bg-info",
+    APPROVED: "bg-success",
+    REJECTED: "bg-destructive",
+  };
+  const labels: Record<string, string> = {
+    PENDING: "Pendiente",
+    SENT: "Enviado",
+    APPROVED: "Aprobado",
+    REJECTED: "Rechazado",
+  };
+  return (
+    <Badge variant="outline" className="shrink-0 gap-1.5 text-xs">
+      <span className={`h-2 w-2 rounded-full ${colors[status || ""] || "bg-muted"}`} />
+      {labels[status || ""] || "Registro"}
+    </Badge>
+  );
+}
+
 /* ── Activity Item ── */
 interface ActivityItem {
   id: string;
   type: "record" | "form" | "user";
   description: string;
   timestamp: string;
+  status?: string;
 }
 
 function ActivityRow({ activity, formatDate }: { activity: ActivityItem; formatDate: (d: string) => string }) {
@@ -65,7 +91,24 @@ function ActivityRow({ activity, formatDate }: { activity: ActivityItem; formatD
           <p className="text-xs text-muted-foreground">{formatDate(activity.timestamp)}</p>
         </div>
       </div>
-      <Badge variant="outline" className="shrink-0">Registro</Badge>
+      <StatusDot status={activity.status} />
+    </div>
+  );
+}
+
+/* ── Custom Tooltip ── */
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-lg">
+      <p className="font-semibold text-foreground mb-1">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-medium text-foreground">{entry.value}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -76,21 +119,24 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recordsByClient, setRecordsByClient] = useState<{ name: string; value: number }[]>([]);
   const [recordsByStatus, setRecordsByStatus] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; registros: number; aprobados: number; rechazados: number }[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const [statsData, byClient, byStatus, activity] = await Promise.all([
+        const [statsData, byClient, byStatus, trend, activity] = await Promise.all([
           dashboardService.getStats(user),
           dashboardService.getRecordsByClientChart(user),
           dashboardService.getRecordsByStatusChart(user),
+          dashboardService.getMonthlyTrend(user),
           dashboardService.getRecentActivity(user),
         ]);
         setStats(statsData);
         setRecordsByClient(byClient);
         setRecordsByStatus(byStatus);
+        setMonthlyTrend(trend);
         setRecentActivity(activity);
       } catch (error) {
         console.error("Error loading dashboard:", error);
@@ -106,13 +152,18 @@ export default function Dashboard() {
 
   if (loading || !stats) return <LoadingState message="Cargando dashboard..." />;
 
-  const COLORS = ["hsl(199, 89%, 48%)", "hsl(142, 71%, 45%)", "hsl(38, 92%, 50%)", "hsl(0, 72%, 51%)"];
+  const COLORS = [
+    "hsl(38, 92%, 50%)",
+    "hsl(199, 89%, 48%)",
+    "hsl(142, 71%, 45%)",
+    "hsl(0, 72%, 51%)",
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title="Dashboard" description="Vista general del sistema de formularios operativos" />
 
-      {/* Stats Grid - responsive from 1 col to 6 */}
+      {/* Stats Grid */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Clientes Activos" value={stats.totalClients} icon={Building2} description="Empresas registradas" variant="primary" />
         <StatCard title="Usuarios" value={stats.totalUsers} icon={Users} description="Usuarios activos" variant="info" />
@@ -122,7 +173,69 @@ export default function Dashboard() {
         <StatCard title="Por Aprobar" value={stats.pendingApproval} icon={AlertCircle} description="Pendientes de revisión" variant="warning" />
       </div>
 
-      {/* Charts Row */}
+      {/* Monthly Trend Chart - Full Width */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Activity className="h-5 w-5 text-accent" />
+            Tendencia Mensual
+          </CardTitle>
+          <CardDescription>Registros creados, aprobados y rechazados en los últimos 6 meses</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyTrend}>
+                <defs>
+                  <linearGradient id="gradRegistros" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradAprobados" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradRechazados" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Area
+                  type="monotone"
+                  dataKey="registros"
+                  name="Total Registros"
+                  stroke="hsl(199, 89%, 48%)"
+                  fill="url(#gradRegistros)"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="aprobados"
+                  name="Aprobados"
+                  stroke="hsl(142, 71%, 45%)"
+                  fill="url(#gradAprobados)"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="rechazados"
+                  name="Rechazados"
+                  stroke="hsl(0, 72%, 51%)"
+                  fill="url(#gradRechazados)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bar + Pie Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -134,14 +247,21 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={recordsByClient} layout="vertical">
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {recordsByClient.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  Sin datos de registros por cliente
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={recordsByClient} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="value" name="Registros" fill="hsl(199, 89%, 48%)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -163,16 +283,18 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={5}
+                    outerRadius={80}
+                    paddingAngle={4}
                     dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
+                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""}
+                    labelLine={false}
                   >
                     {recordsByStatus.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -195,11 +317,17 @@ export default function Dashboard() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="space-y-0">
-            {recentActivity.map((activity) => (
-              <ActivityRow key={activity.id} activity={activity} formatDate={formatDate} />
-            ))}
-          </div>
+          {recentActivity.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+              No hay actividad reciente
+            </div>
+          ) : (
+            <div className="space-y-0">
+              {recentActivity.map((activity) => (
+                <ActivityRow key={activity.id} activity={activity} formatDate={formatDate} />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
