@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, User, Building2, Calendar, Check, X, MessageSquare, Download } from "lucide-react";
+import { ArrowLeft, User, Building2, Calendar, Check, X, MessageSquare, Download, MapPin, Clock, History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { recordService, clientService, formService, userService } from "@/services";
-import { Record as RecordType, Client, Form, User as UserType, RecordStatus } from "@/models";
+import { firebaseAuditService } from "@/services/firebase/firebaseAuditService";
+import { Record as RecordType, Client, Form, User as UserType, RecordStatus, AuditLog } from "@/models";
 import { toast } from "sonner";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 const statusConfig: { [key in RecordStatus]: { label: string; className: string } } = {
   PENDING: { label: "Pendiente", className: "status-pending" },
@@ -28,22 +30,30 @@ const statusConfig: { [key in RecordStatus]: { label: string; className: string 
   REJECTED: { label: "Rechazado", className: "status-rejected" },
 };
 
+const auditActionLabels: Record<string, string> = {
+  created: "Registro creado",
+  status_changed: "Estado actualizado",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  edited: "Editado",
+};
+
 export default function RecordDetail() {
   const navigate = useNavigate();
   const { recordId } = useParams();
+  const { isAdmin, isCentral, isCoordinador, canValidate, user: authUser } = useRoleAccess();
   const [record, setRecord] = useState<RecordType | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [user, setUser] = useState<UserType | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [observationDialogOpen, setObservationDialogOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"APPROVED" | "REJECTED" | null>(null);
+  const [pendingAction, setPendingAction] = useState<RecordStatus | null>(null);
   const [observations, setObservations] = useState("");
 
   useEffect(() => {
-    if (recordId) {
-      loadData();
-    }
+    if (recordId) loadData();
   }, [recordId]);
 
   async function loadData() {
@@ -57,15 +67,17 @@ export default function RecordDetail() {
       setRecord(recordData);
       setObservations(recordData.observations);
 
-      const [clientData, formData, userData] = await Promise.all([
+      const [clientData, formData, userData, logs] = await Promise.all([
         clientService.getClientById(recordData.clientId),
         formService.getFormById(recordData.formId),
         userService.getUserById(recordData.userId),
+        firebaseAuditService.getLogsByRecord(recordId!).catch(() => []),
       ]);
 
       setClient(clientData || null);
       setForm(formData || null);
       setUser(userData || null);
+      setAuditLogs(logs);
     } catch (error) {
       toast.error("Error al cargar registro");
     } finally {
@@ -74,25 +86,72 @@ export default function RecordDetail() {
   }
 
   function getFieldLabel(fieldId: string): string {
-    const field = form?.fields.find((f) => f.id === fieldId);
-    return field?.label || fieldId;
+    return form?.fields.find((f) => f.id === fieldId)?.label || fieldId;
   }
 
   function getAnswerValue(fieldId: string): string {
-    const answer = record?.answers.find((a) => a.fieldId === fieldId);
-    return answer?.value || "—";
+    return record?.answers.find((a) => a.fieldId === fieldId)?.value || "—";
   }
 
-  function openActionDialog(action: "APPROVED" | "REJECTED") {
-    setPendingAction(action);
+  /**
+   * Determina las acciones disponibles según el rol y estado actual.
+   * Flujo multinivel: SENT → REVIEW_COORD → REVIEW_ADMIN → APPROVED/REJECTED
+   */
+  function getAvailableActions(): { approve?: RecordStatus; reject: RecordStatus; approveLabel: string } | null {
+    if (!record) return null;
+    const status = record.status;
+
+    // Coordinador: puede revisar registros SENT → pasa a REVIEW_COORD o rechaza
+    if (isCoordinador && status === "SENT") {
+      return { approve: "REVIEW_COORD", reject: "REJECTED", approveLabel: "Aprobar (Coord.)" };
+    }
+
+    // Admin/Central: puede revisar REVIEW_COORD → pasa a APPROVED o rechaza
+    if ((isAdmin || isCentral) && status === "REVIEW_COORD") {
+      return { approve: "APPROVED", reject: "REJECTED", approveLabel: "Aprobar Final" };
+    }
+
+    // Admin/Central: puede aprobar directamente si está en SENT (sin coordinador)
+    if ((isAdmin || isCentral) && (status === "SENT" || status === "PENDING")) {
+      return { approve: "APPROVED", reject: "REJECTED", approveLabel: "Aprobar" };
+    }
+
+    // Admin: puede aprobar REVIEW_ADMIN
+    if (isAdmin && status === "REVIEW_ADMIN") {
+      return { approve: "APPROVED", reject: "REJECTED", approveLabel: "Aprobar Final" };
+    }
+
+    return null;
+  }
+
+  function openActionDialog(targetStatus: RecordStatus) {
+    setPendingAction(targetStatus);
     setObservationDialogOpen(true);
   }
 
   async function confirmAction() {
-    if (!pendingAction || !record) return;
+    if (!pendingAction || !record || !authUser) return;
     try {
+      const previousStatus = record.status;
       await recordService.updateRecordStatus(record.id, pendingAction, observations);
-      toast.success(`Registro ${pendingAction === "APPROVED" ? "aprobado" : "rechazado"}`);
+
+      // Registrar en auditoría
+      const auditAction = pendingAction === "REJECTED" ? "rejected" 
+        : pendingAction === "APPROVED" ? "approved" 
+        : "status_changed";
+
+      await firebaseAuditService.addLog({
+        recordId: record.id,
+        action: auditAction,
+        userId: authUser.id,
+        userName: authUser.fullName,
+        previousStatus,
+        newStatus: pendingAction,
+        observations,
+        timestamp: new Date().toISOString(),
+      });
+
+      toast.success(`Registro ${statusConfig[pendingAction].label}`);
       setObservationDialogOpen(false);
       loadData();
     } catch (error) {
@@ -110,12 +169,25 @@ export default function RecordDetail() {
     rows.push(["Fecha", formatDate(record.createdAt)]);
     rows.push(["Estado", statusConfig[record.status].label]);
     rows.push(["Observaciones", record.observations || ""]);
+    if (record.location) {
+      rows.push(["Latitud", String(record.location.latitude)]);
+      rows.push(["Longitud", String(record.location.longitude)]);
+      rows.push(["Precisión GPS", record.location.accuracy ? `${record.location.accuracy}m` : "—"]);
+    }
     rows.push(["", ""]);
     rows.push(["--- Respuestas ---", ""]);
     form.fields.forEach((field) => {
       rows.push([field.label, getAnswerValue(field.id)]);
     });
     if (record.evidence.qrValue) rows.push(["Código QR", record.evidence.qrValue]);
+    if (auditLogs.length) {
+      rows.push(["", ""]);
+      rows.push(["--- Historial de Auditoría ---", ""]);
+      rows.push(["Fecha", "Acción", "Usuario", "Observaciones"]);
+      auditLogs.forEach((log) => {
+        rows.push([formatDate(log.timestamp), auditActionLabels[log.action] || log.action, log.userName, log.observations || ""]);
+      });
+    }
 
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -156,11 +228,12 @@ export default function RecordDetail() {
   }
 
   const statusConf = statusConfig[record.status];
+  const actions = getAvailableActions();
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/records")}>
             <ArrowLeft className="h-5 w-5" />
@@ -170,32 +243,70 @@ export default function RecordDetail() {
             <p className="page-description">Detalle del registro diligenciado</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={exportRecordCSV}>
             <Download className="mr-2 h-4 w-4" />
             Descargar
           </Button>
-          {(record.status === "PENDING" || record.status === "SENT") && (
+          {actions && (
             <>
               <Button
                 variant="outline"
                 className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                onClick={() => openActionDialog("REJECTED")}
+                onClick={() => openActionDialog(actions.reject)}
               >
                 <X className="mr-2 h-4 w-4" />
                 Rechazar
               </Button>
-              <Button
-                className="bg-success hover:bg-success/90"
-                onClick={() => openActionDialog("APPROVED")}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Aprobar
-              </Button>
+              {actions.approve && (
+                <Button
+                  className="bg-success hover:bg-success/90"
+                  onClick={() => openActionDialog(actions.approve!)}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  {actions.approveLabel}
+                </Button>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Workflow Progress */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto">
+            {(["SENT", "REVIEW_COORD", "REVIEW_ADMIN", "APPROVED"] as RecordStatus[]).map((step, i) => {
+              const stepOrder = { SENT: 1, REVIEW_COORD: 2, REVIEW_ADMIN: 3, APPROVED: 4 };
+              const currentOrder = stepOrder[record.status as keyof typeof stepOrder] || 0;
+              const thisOrder = stepOrder[step];
+              const isActive = record.status === step;
+              const isDone = currentOrder > thisOrder || record.status === "APPROVED";
+              const isRejected = record.status === "REJECTED";
+
+              return (
+                <div key={step} className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    isRejected ? "bg-destructive/20 text-destructive" :
+                    isDone ? "bg-success/20 text-success" :
+                    isActive ? "bg-primary text-primary-foreground" :
+                    "bg-muted text-muted-foreground"
+                  }`}>
+                    {isDone ? "✓" : i + 1}
+                  </div>
+                  <span className={`text-xs truncate ${isActive ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+                    {statusConfig[step].label}
+                  </span>
+                  {i < 3 && <div className={`h-px flex-1 ${isDone ? "bg-success" : "bg-border"}`} />}
+                </div>
+              );
+            })}
+          </div>
+          {record.status === "REJECTED" && (
+            <p className="text-destructive text-sm mt-2 font-medium">⚠ Este registro fue rechazado</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Info */}
@@ -266,6 +377,43 @@ export default function RecordDetail() {
             </CardContent>
           </Card>
 
+          {/* GPS Location */}
+          {record.location && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Ubicación GPS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Latitud</p>
+                    <p className="font-mono">{record.location.latitude.toFixed(6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Longitud</p>
+                    <p className="font-mono">{record.location.longitude.toFixed(6)}</p>
+                  </div>
+                </div>
+                {record.location.accuracy && (
+                  <p className="text-xs text-muted-foreground">Precisión: ±{record.location.accuracy.toFixed(0)}m</p>
+                )}
+                <Button variant="outline" size="sm" className="w-full mt-2" asChild>
+                  <a
+                    href={`https://www.google.com/maps?q=${record.location.latitude},${record.location.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MapPin className="mr-2 h-3 w-3" />
+                    Ver en Google Maps
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Evidence */}
           {(record.evidence.photos.length > 0 || record.evidence.signature || record.evidence.qrValue) && (
             <Card>
@@ -278,12 +426,7 @@ export default function RecordDetail() {
                     <Label className="text-xs text-muted-foreground">Fotos</Label>
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       {record.evidence.photos.map((photo, index) => (
-                        <img
-                          key={index}
-                          src={photo}
-                          alt={`Evidencia ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border"
-                        />
+                        <img key={index} src={photo} alt={`Evidencia ${index + 1}`} className="w-full h-24 object-cover rounded-lg border" />
                       ))}
                     </div>
                   </div>
@@ -299,9 +442,7 @@ export default function RecordDetail() {
                 {record.evidence.qrValue && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Código QR</Label>
-                    <code className="block mt-2 p-2 bg-muted rounded text-sm">
-                      {record.evidence.qrValue}
-                    </code>
+                    <code className="block mt-2 p-2 bg-muted rounded text-sm">{record.evidence.qrValue}</code>
                   </div>
                 )}
               </CardContent>
@@ -325,17 +466,59 @@ export default function RecordDetail() {
         </div>
       </div>
 
+      {/* Audit Trail */}
+      {auditLogs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historial de Auditoría
+            </CardTitle>
+            <CardDescription>Registro cronológico de todas las acciones realizadas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative pl-6 space-y-6">
+              <div className="absolute left-2.5 top-2 bottom-2 w-px bg-border" />
+              {auditLogs.map((log) => (
+                <div key={log.id} className="relative">
+                  <div className="absolute -left-[17px] top-1 h-3 w-3 rounded-full bg-primary border-2 border-background" />
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{auditActionLabels[log.action] || log.action}</span>
+                      {log.previousStatus && log.newStatus && (
+                        <span className="text-xs text-muted-foreground">
+                          {statusConfig[log.previousStatus]?.label} → {statusConfig[log.newStatus]?.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><User className="h-3 w-3" />{log.userName}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(log.timestamp)}</span>
+                    </div>
+                    {log.observations && (
+                      <p className="text-sm text-muted-foreground mt-1 italic">"{log.observations}"</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Action Dialog */}
       <Dialog open={observationDialogOpen} onOpenChange={setObservationDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingAction === "APPROVED" ? "Aprobar Registro" : "Rechazar Registro"}
+              {pendingAction === "REJECTED" ? "Rechazar Registro" :
+               pendingAction === "REVIEW_COORD" ? "Aprobar como Coordinador" :
+               "Aprobar Registro"}
             </DialogTitle>
             <DialogDescription>
-              {pendingAction === "APPROVED"
-                ? "El registro será marcado como aprobado"
-                : "El registro será rechazado y devuelto al operativo"}
+              {pendingAction === "REJECTED" ? "El registro será rechazado y devuelto al operativo" :
+               pendingAction === "REVIEW_COORD" ? "El registro pasará a revisión del administrador" :
+               "El registro será marcado como aprobado"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -350,15 +533,15 @@ export default function RecordDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setObservationDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setObservationDialogOpen(false)}>Cancelar</Button>
             <Button
               onClick={confirmAction}
-              className={pendingAction === "APPROVED" ? "bg-success hover:bg-success/90" : ""}
+              className={pendingAction !== "REJECTED" ? "bg-success hover:bg-success/90" : ""}
               variant={pendingAction === "REJECTED" ? "destructive" : "default"}
             >
-              {pendingAction === "APPROVED" ? "Aprobar" : "Rechazar"}
+              {pendingAction === "REJECTED" ? "Rechazar" :
+               pendingAction === "REVIEW_COORD" ? "Aprobar (Coord.)" :
+               "Aprobar"}
             </Button>
           </DialogFooter>
         </DialogContent>
