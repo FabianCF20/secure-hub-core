@@ -142,6 +142,8 @@ export default function Records() {
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="PENDING">Pendiente</SelectItem>
                   <SelectItem value="SENT">Enviado</SelectItem>
+                  <SelectItem value="REVIEW_COORD">Rev. Coordinador</SelectItem>
+                  <SelectItem value="REVIEW_ADMIN">Rev. Admin</SelectItem>
                   <SelectItem value="APPROVED">Aprobado</SelectItem>
                   <SelectItem value="REJECTED">Rechazado</SelectItem>
                 </SelectContent>

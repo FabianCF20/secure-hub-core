@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   FORMS: "forms",
   RECORDS: "records",
   SYSTEM_CONFIG: "systemConfig",
+  AUDIT_LOGS: "auditLogs",
 } as const;
 
 // Documento único para configuración del sistema

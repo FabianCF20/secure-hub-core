@@ -28,6 +28,8 @@ function buildNotification(
   const statusLabels: Record<RecordStatus, string> = {
     PENDING: "Pendiente",
     SENT: "Enviado",
+    REVIEW_COORD: "En revisión Coordinador",
+    REVIEW_ADMIN: "En revisión Admin",
     APPROVED: "Aprobado",
     REJECTED: "Rechazado",
   };
@@ -35,6 +37,8 @@ function buildNotification(
   const typeMap: Record<RecordStatus, AppNotification["type"]> = {
     PENDING: "record_created",
     SENT: "record_created",
+    REVIEW_COORD: "status_changed",
+    REVIEW_ADMIN: "status_changed",
     APPROVED: "record_approved",
     REJECTED: "record_rejected",
   };
