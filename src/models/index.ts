@@ -125,6 +125,8 @@ export interface Record {
   answers: FieldAnswer[];
   evidence: RecordEvidence;
   observations: string;
+  location?: GeoLocation;
+  auditTrail?: AuditLog[];
 }
 
 // ==========================================
