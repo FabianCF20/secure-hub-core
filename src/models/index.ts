@@ -7,7 +7,7 @@
 export type UserRole = "ADMIN" | "CENTRAL" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE";
 
 // Estados de registros
-export type RecordStatus = "PENDING" | "SENT" | "APPROVED" | "REJECTED";
+export type RecordStatus = "PENDING" | "SENT" | "REVIEW_COORD" | "REVIEW_ADMIN" | "APPROVED" | "REJECTED";
 
 // Tipos de campos de formulario
 export type FieldType = "text" | "number" | "select" | "checkbox" | "photo" | "signature" | "qr";
