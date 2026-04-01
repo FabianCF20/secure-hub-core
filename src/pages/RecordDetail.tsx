@@ -22,6 +22,8 @@ import { toast } from "sonner";
 const statusConfig: { [key in RecordStatus]: { label: string; className: string } } = {
   PENDING: { label: "Pendiente", className: "status-pending" },
   SENT: { label: "Enviado", className: "status-sent" },
+  REVIEW_COORD: { label: "Rev. Coordinador", className: "status-sent" },
+  REVIEW_ADMIN: { label: "Rev. Admin", className: "status-sent" },
   APPROVED: { label: "Aprobado", className: "status-approved" },
   REJECTED: { label: "Rechazado", className: "status-rejected" },
 };
