@@ -140,6 +140,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- LOGS DE AUDITORÍA ---
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral()
+      );
+      allow create: if isAuthenticated() && isActiveUser();
+      allow update, delete: if false;
+    }
+
     // --- CONFIGURACIÓN DEL SISTEMA ---
     match /systemConfig/{docId} {
       allow read: if isAuthenticated() && isActiveUser();
