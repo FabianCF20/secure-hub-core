@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Send, FileText } from "lucide-react";
+import { ArrowLeft, Send, FileText, MapPin, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { formService, recordService } from "@/services";
-import { Form, FormField, FieldAnswer } from "@/models";
+import { firebaseAuditService } from "@/services/firebase/firebaseAuditService";
+import { Form, FormField, FieldAnswer, GeoLocation } from "@/models";
 import { toast } from "sonner";
 import { showActionError } from "@/lib/ui-feedback";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,10 +28,38 @@ export default function FormFill() {
   const [observations, setObservations] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [location, setLocation] = useState<GeoLocation | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   useEffect(() => {
     loadForm();
+    captureLocation();
   }, [formId]);
+
+  function captureLocation() {
+    if (!navigator.geolocation) {
+      setGpsError("Geolocalización no soportada en este navegador");
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          timestamp: new Date().toISOString(),
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsError(err.code === 1 ? "Permiso de ubicación denegado" : "No se pudo obtener la ubicación");
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
 
   async function loadForm() {
     try {
@@ -47,7 +76,6 @@ export default function FormFill() {
         return;
       }
       setForm(formData);
-      // Inicializar respuestas vacías
       const initial: { [key: string]: string } = {};
       formData.fields.forEach((f) => {
         initial[f.id] = f.type === "checkbox" ? "false" : "";
@@ -67,7 +95,6 @@ export default function FormFill() {
   async function handleSubmit() {
     if (!form || !user) return;
 
-    // Validar campos requeridos
     const missingFields = form.fields
       .filter((f) => f.required)
       .filter((f) => {
@@ -88,7 +115,7 @@ export default function FormFill() {
         value: answers[f.id] || "",
       }));
 
-      await recordService.createRecord({
+      const newRecord = await recordService.createRecord({
         formId: form.id,
         clientId: form.clientId,
         userId: user.id,
@@ -97,7 +124,19 @@ export default function FormFill() {
         answers: fieldAnswers,
         evidence: { photos: [], signature: "", qrValue: "" },
         observations,
+        ...(location ? { location } : {}),
       });
+
+      // Registrar en auditoría
+      await firebaseAuditService.addLog({
+        recordId: newRecord.id,
+        action: "created",
+        userId: user.id,
+        userName: user.fullName,
+        newStatus: "SENT",
+        observations: "",
+        timestamp: new Date().toISOString(),
+      }).catch(() => {}); // No bloquear si falla
 
       toast.success("Formulario enviado exitosamente");
       navigate("/records");
@@ -113,67 +152,31 @@ export default function FormFill() {
 
     switch (field.type) {
       case "text":
-        return (
-          <Input
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.helperText || `Ingresa ${field.label.toLowerCase()}`}
-          />
-        );
+        return <Input value={value} onChange={(e) => updateAnswer(field.id, e.target.value)} placeholder={field.helperText || `Ingresa ${field.label.toLowerCase()}`} />;
       case "number":
-        return (
-          <Input
-            type="number"
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.helperText || "0"}
-            min={field.validations?.min}
-            max={field.validations?.max}
-          />
-        );
+        return <Input type="number" value={value} onChange={(e) => updateAnswer(field.id, e.target.value)} placeholder={field.helperText || "0"} min={field.validations?.min} max={field.validations?.max} />;
       case "select":
         return (
           <Select value={value} onValueChange={(v) => updateAnswer(field.id, v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar..." />
-            </SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
             <SelectContent>
-              {field.options?.map((opt) => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-              ))}
+              {field.options?.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
             </SelectContent>
           </Select>
         );
       case "checkbox":
         return (
           <div className="flex items-center gap-2">
-            <Checkbox
-              checked={value === "true"}
-              onCheckedChange={(checked) => updateAnswer(field.id, checked ? "true" : "false")}
-            />
+            <Checkbox checked={value === "true"} onCheckedChange={(checked) => updateAnswer(field.id, checked ? "true" : "false")} />
             <span className="text-sm text-muted-foreground">{field.helperText || "Marcar si aplica"}</span>
           </div>
         );
       case "photo":
-        return (
-          <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">
-            📷 Captura de foto (disponible en app móvil)
-          </div>
-        );
+        return <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">📷 Captura de foto (disponible en app móvil)</div>;
       case "signature":
-        return (
-          <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">
-            ✍️ Firma digital (disponible en app móvil)
-          </div>
-        );
+        return <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">✍️ Firma digital (disponible en app móvil)</div>;
       case "qr":
-        return (
-          <Input
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder="Código QR escaneado"
-          />
-        );
+        return <Input value={value} onChange={(e) => updateAnswer(field.id, e.target.value)} placeholder="Código QR escaneado" />;
       default:
         return <Input value={value} onChange={(e) => updateAnswer(field.id, e.target.value)} />;
     }
@@ -194,6 +197,32 @@ export default function FormFill() {
           <p className="text-sm text-muted-foreground">Versión {form.version} • {form.fields.length} campos</p>
         </div>
       </div>
+
+      {/* GPS Status */}
+      <Card className={`border ${location ? "border-success/50 bg-success/5" : gpsError ? "border-destructive/50 bg-destructive/5" : "border-primary/50 bg-primary/5"}`}>
+        <CardContent className="py-3 flex items-center gap-3">
+          {gpsLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm">Obteniendo ubicación GPS...</span>
+            </>
+          ) : location ? (
+            <>
+              <MapPin className="h-4 w-4 text-success" />
+              <span className="text-sm">
+                Ubicación capturada: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                {location.accuracy && <span className="text-muted-foreground"> (±{location.accuracy.toFixed(0)}m)</span>}
+              </span>
+            </>
+          ) : (
+            <>
+              <MapPin className="h-4 w-4 text-destructive" />
+              <span className="text-sm text-destructive">{gpsError || "Sin ubicación"}</span>
+              <Button variant="ghost" size="sm" onClick={captureLocation} className="ml-auto">Reintentar</Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Fields */}
       <Card>

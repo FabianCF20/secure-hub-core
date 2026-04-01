@@ -19,6 +19,8 @@ import { useRoleAccess } from "@/hooks/useRoleAccess";
 const statusConfig: { [key in RecordStatus]: { label: string; className: string } } = {
   PENDING: { label: "Pendiente", className: "status-pending" },
   SENT: { label: "Enviado", className: "status-sent" },
+  REVIEW_COORD: { label: "Rev. Coordinador", className: "status-sent" },
+  REVIEW_ADMIN: { label: "Rev. Admin", className: "status-sent" },
   APPROVED: { label: "Aprobado", className: "status-approved" },
   REJECTED: { label: "Rechazado", className: "status-rejected" },
 };
@@ -140,6 +142,8 @@ export default function Records() {
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="PENDING">Pendiente</SelectItem>
                   <SelectItem value="SENT">Enviado</SelectItem>
+                  <SelectItem value="REVIEW_COORD">Rev. Coordinador</SelectItem>
+                  <SelectItem value="REVIEW_ADMIN">Rev. Admin</SelectItem>
                   <SelectItem value="APPROVED">Aprobado</SelectItem>
                   <SelectItem value="REJECTED">Rechazado</SelectItem>
                 </SelectContent>

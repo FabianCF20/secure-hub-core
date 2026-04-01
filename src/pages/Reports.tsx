@@ -18,6 +18,8 @@ import { LoadingState } from "@/components/shared";
 const statusLabels: Record<RecordStatus, string> = {
   PENDING: "Pendiente",
   SENT: "Enviado",
+  REVIEW_COORD: "Rev. Coordinador",
+  REVIEW_ADMIN: "Rev. Admin",
   APPROVED: "Aprobado",
   REJECTED: "Rechazado",
 };
