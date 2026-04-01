@@ -86,6 +86,33 @@ export interface RecordEvidence {
 }
 
 // ==========================================
+// GEOLOCALIZACIÓN
+// ==========================================
+export interface GeoLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp: string;
+}
+
+// ==========================================
+// LOG DE AUDITORÍA
+// ==========================================
+export type AuditAction = "created" | "status_changed" | "edited" | "approved" | "rejected";
+
+export interface AuditLog {
+  id: string;
+  recordId: string;
+  action: AuditAction;
+  userId: string;
+  userName: string;
+  previousStatus?: RecordStatus;
+  newStatus?: RecordStatus;
+  observations?: string;
+  timestamp: string;
+}
+
+// ==========================================
 // REGISTRO DILIGENCIADO
 // ==========================================
 export interface Record {
