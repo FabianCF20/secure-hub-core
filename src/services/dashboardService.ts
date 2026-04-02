@@ -61,7 +61,11 @@ export const dashboardService = {
 
     const [clients, records] = await Promise.all([
       global ? clientService.getClients() : clientService.getClientsByIds(clientIds),
-      global ? recordService.getRecords() : recordService.getRecordsByClientIds(clientIds),
+      global
+        ? recordService.getRecords()
+        : currentUser?.role === "SUPERVISOR"
+          ? recordService.getRecordsByUser(currentUser.id)
+          : recordService.getRecordsByClientIds(clientIds),
     ]);
 
     return clients

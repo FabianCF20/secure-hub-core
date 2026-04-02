@@ -13,6 +13,7 @@ import {
 import { db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
 import { minuteEntryConverter } from "@/firebase/converters";
+import { ensureFirebaseSession } from "@/lib/firebase-session";
 import { MinuteEntry, AnnotationType, GeoLocation, UserRole } from "@/models";
 
 const colRef = () =>
