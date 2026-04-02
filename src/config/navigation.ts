@@ -7,6 +7,7 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
+  BookOpen,
 } from "lucide-react";
 
 export interface NavItem {
