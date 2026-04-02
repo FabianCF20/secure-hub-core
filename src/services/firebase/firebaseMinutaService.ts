@@ -13,6 +13,7 @@ import {
 import { db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
 import { minuteEntryConverter } from "@/firebase/converters";
+import { ensureFirebaseSession } from "@/lib/firebase-session";
 import { MinuteEntry, AnnotationType, GeoLocation, UserRole } from "@/models";
 
 const colRef = () =>
@@ -21,12 +22,14 @@ const colRef = () =>
 export const firebaseMinutaService = {
   /** Crear anotación (inmutable una vez creada) */
   async create(entry: Omit<MinuteEntry, "id">): Promise<string> {
+    await ensureFirebaseSession();
     const docRef = await addDoc(colRef(), { id: "", ...entry } as MinuteEntry);
     return docRef.id;
   },
 
   /** Obtener entradas por clientId */
   async getByClient(clientId: string): Promise<MinuteEntry[]> {
+    await ensureFirebaseSession();
     const q = query(colRef(), where("clientId", "==", clientId), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data());
@@ -34,6 +37,7 @@ export const firebaseMinutaService = {
 
   /** Obtener todas las entradas (ADMIN/CENTRAL) */
   async getAll(): Promise<MinuteEntry[]> {
+    await ensureFirebaseSession();
     const q = query(colRef(), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data());
@@ -42,8 +46,8 @@ export const firebaseMinutaService = {
   /** Obtener por múltiples clientIds */
   async getByClients(clientIds: string[]): Promise<MinuteEntry[]> {
     if (clientIds.length === 0) return [];
+    await ensureFirebaseSession();
     const batches: MinuteEntry[] = [];
-    // Firestore 'in' max 30
     for (let i = 0; i < clientIds.length; i += 30) {
       const chunk = clientIds.slice(i, i + 30);
       const q = query(colRef(), where("clientId", "in", chunk), orderBy("createdAt", "desc"));
@@ -55,6 +59,7 @@ export const firebaseMinutaService = {
 
   /** Cerrar consigna general (solo CENTRAL/COORDINADOR) */
   async closeConsigna(entryId: string, closedBy: string, closedByName: string): Promise<void> {
+    await ensureFirebaseSession();
     const docRef = doc(db, COLLECTIONS.MINUTE_ENTRIES, entryId);
     await updateDoc(docRef, {
       isClosed: true,
