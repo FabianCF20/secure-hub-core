@@ -59,6 +59,7 @@ export const firebaseMinutaService = {
 
   /** Cerrar consigna general (solo CENTRAL/COORDINADOR) */
   async closeConsigna(entryId: string, closedBy: string, closedByName: string): Promise<void> {
+    await ensureFirebaseSession();
     const docRef = doc(db, COLLECTIONS.MINUTE_ENTRIES, entryId);
     await updateDoc(docRef, {
       isClosed: true,
