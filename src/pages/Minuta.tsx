@@ -179,7 +179,6 @@ export default function Minuta() {
       <PageHeader
         title="Minuta de Control"
         description="Registro inmutable de novedades, observaciones, incidentes y consignas"
-        icon={BookOpen}
       />
 
       {/* Formulario de nueva anotación */}
