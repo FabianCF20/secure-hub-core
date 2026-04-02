@@ -5,5 +5,6 @@ export {
   userConverter,
   formConverter,
   recordConverter,
+  minuteEntryConverter,
   systemConfigConverter,
 } from "./converters";

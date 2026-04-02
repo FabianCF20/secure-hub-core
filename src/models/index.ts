@@ -144,6 +144,28 @@ export interface SystemConfig {
 }
 
 // ==========================================
+// MINUTA DE CONTROL
+// ==========================================
+export type AnnotationType = "novedad" | "observacion" | "incidente" | "reporte" | "consigna_general";
+
+export interface MinuteEntry {
+  id: string;
+  clientId: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  type: AnnotationType;
+  content: string;
+  location?: GeoLocation;
+  createdAt: string; // ISO 8601
+  // Solo para consignas generales
+  isClosed?: boolean;
+  closedBy?: string;
+  closedByName?: string;
+  closedAt?: string;
+}
+
+// ==========================================
 // ESTADÍSTICAS DEL DASHBOARD
 // ==========================================
 export interface DashboardStats {

@@ -52,6 +52,7 @@ export const clientConverter = createConverter<Client>();
 export const userConverter = createConverter<User>();
 export const formConverter = createConverter<Form>();
 export const recordConverter = createConverter<Record>();
+export const minuteEntryConverter = createConverter<MinuteEntry>();
 
 export const systemConfigConverter: FirestoreDataConverter<SystemConfig> = {
   toFirestore(config: SystemConfig): DocumentData {

@@ -50,6 +50,12 @@ export const navItems: NavItem[] = [
     allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"],
   },
   {
+    to: "/minuta",
+    icon: BookOpen,
+    label: "Minuta",
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR"],
+  },
+  {
     to: "/reports",
     icon: BarChart3,
     label: "Reportes",
