@@ -29,6 +29,7 @@ export const firebaseMinutaService = {
 
   /** Obtener entradas por clientId */
   async getByClient(clientId: string): Promise<MinuteEntry[]> {
+    await ensureFirebaseSession();
     const q = query(colRef(), where("clientId", "==", clientId), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data());
