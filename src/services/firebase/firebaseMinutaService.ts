@@ -37,6 +37,7 @@ export const firebaseMinutaService = {
 
   /** Obtener todas las entradas (ADMIN/CENTRAL) */
   async getAll(): Promise<MinuteEntry[]> {
+    await ensureFirebaseSession();
     const q = query(colRef(), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data());
