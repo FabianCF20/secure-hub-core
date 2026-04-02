@@ -140,6 +140,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- MINUTA DE CONTROL ---
+    // Inmutable: no se puede editar ni borrar (excepto cerrar consignas)
+    match /minuteEntries/{entryId} {
+      allow read: if isAuthenticated() && isActiveUser() && (
+        isAdmin() ||
+        isCentral() ||
+        (isSupervisor() && hasClient(resource.data.clientId)) ||
+        (isCoordinador() && hasClient(resource.data.clientId))
+      );
+      allow create: if isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral() || isSupervisor() || isCoordinador()
+      ) && request.resource.data.userId == request.auth.uid;
+      // Solo permitir cerrar consignas (update isClosed)
+      allow update: if isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral() || isCoordinador()
+      ) && resource.data.type == 'consigna_general'
+        && request.resource.data.isClosed == true
+        && resource.data.isClosed == false;
+      allow delete: if false;
+    }
+
     // --- LOGS DE AUDITORÍA ---
     match /auditLogs/{logId} {
       allow read: if isAuthenticated() && isActiveUser() && (

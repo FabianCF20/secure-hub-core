@@ -10,7 +10,7 @@ import {
   QueryDocumentSnapshot,
   SnapshotOptions,
 } from "firebase/firestore";
-import { Client, User, Form, Record, SystemConfig } from "@/models";
+import { Client, User, Form, Record, SystemConfig, MinuteEntry } from "@/models";
 
 /**
  * Elimina recursivamente todas las propiedades con valor `undefined`
@@ -52,6 +52,7 @@ export const clientConverter = createConverter<Client>();
 export const userConverter = createConverter<User>();
 export const formConverter = createConverter<Form>();
 export const recordConverter = createConverter<Record>();
+export const minuteEntryConverter = createConverter<MinuteEntry>();
 
 export const systemConfigConverter: FirestoreDataConverter<SystemConfig> = {
   toFirestore(config: SystemConfig): DocumentData {

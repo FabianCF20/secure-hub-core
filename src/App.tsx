@@ -16,6 +16,7 @@ import FormFill from "./pages/FormFill";
 import Records from "./pages/Records";
 import RecordDetail from "./pages/RecordDetail";
 import Reports from "./pages/Reports";
+import Minuta from "./pages/Minuta";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -78,6 +79,11 @@ const App = () => (
                 <Route path="/records/:recordId" element={
                   <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
                     <RecordDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/minuta" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR"]}>
+                    <Minuta />
                   </ProtectedRoute>
                 } />
                 <Route path="/reports" element={

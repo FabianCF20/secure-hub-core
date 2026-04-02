@@ -7,6 +7,7 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
+  BookOpen,
 } from "lucide-react";
 
 export interface NavItem {
@@ -47,6 +48,12 @@ export const navItems: NavItem[] = [
     icon: ClipboardList,
     label: "Registros",
     allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"],
+  },
+  {
+    to: "/minuta",
+    icon: BookOpen,
+    label: "Minuta",
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR"],
   },
   {
     to: "/reports",
