@@ -92,9 +92,9 @@ export default function Minuta() {
     const load = async () => {
       try {
         if (hasGlobalAccess) {
-          setClients(await activeClientService.getAll());
+          setClients(await activeClientService.getClients());
         } else if (clientIds.length > 0) {
-          setClients(await activeClientService.getByIds(clientIds));
+          setClients(await activeClientService.getClientsByIds(clientIds));
         }
       } catch (e) {
         console.error("Error loading clients", e);
