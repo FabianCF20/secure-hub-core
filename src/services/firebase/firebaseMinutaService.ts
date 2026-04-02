@@ -46,8 +46,8 @@ export const firebaseMinutaService = {
   /** Obtener por múltiples clientIds */
   async getByClients(clientIds: string[]): Promise<MinuteEntry[]> {
     if (clientIds.length === 0) return [];
+    await ensureFirebaseSession();
     const batches: MinuteEntry[] = [];
-    // Firestore 'in' max 30
     for (let i = 0; i < clientIds.length; i += 30) {
       const chunk = clientIds.slice(i, i + 30);
       const q = query(colRef(), where("clientId", "in", chunk), orderBy("createdAt", "desc"));
