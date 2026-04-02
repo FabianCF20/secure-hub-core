@@ -22,6 +22,7 @@ const colRef = () =>
 export const firebaseMinutaService = {
   /** Crear anotación (inmutable una vez creada) */
   async create(entry: Omit<MinuteEntry, "id">): Promise<string> {
+    await ensureFirebaseSession();
     const docRef = await addDoc(colRef(), { id: "", ...entry } as MinuteEntry);
     return docRef.id;
   },
