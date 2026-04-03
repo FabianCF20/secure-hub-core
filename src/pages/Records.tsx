@@ -67,7 +67,7 @@ export default function Records() {
           clientService.getClients(),
           formService.getForms(),
         ]);
-      } else if (isSupervisor && user) {
+      } else if ((isSupervisor || isGuarda) && user) {
         [recordsData, clientsData, formsData] = await Promise.all([
           recordService.getRecordsByUser(user.id),
           clientService.getClientsByIds(userClientIds),

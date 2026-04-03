@@ -57,7 +57,7 @@ export default function Minuta() {
   // Filter
   const [filterType, setFilterType] = useState<AnnotationType | "all">("all");
 
-  const canWrite = isSupervisor || isCentral || isCoordinador || isAdmin;
+  const canWrite = isSupervisor || isCentral || isCoordinador || isAdmin || isGuarda;
   const canWriteConsigna = isCentral || isCoordinador || isAdmin;
   const canClose = isCentral || isCoordinador || isAdmin;
 

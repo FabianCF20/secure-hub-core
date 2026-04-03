@@ -221,7 +221,7 @@ export default function Forms() {
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/forms/builder/${form.id}`)}><Eye className="mr-2 h-4 w-4" />Ver / Editar</DropdownMenuItem>
-                            {isSupervisor && form.isActive && (
+                            {canFillForms && form.isActive && (
                               <DropdownMenuItem onClick={() => navigate(`/forms/fill/${form.id}`)}><ClipboardEdit className="mr-2 h-4 w-4" />Diligenciar</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => openCloneDialog(form)}><Copy className="mr-2 h-4 w-4" />Clonar</DropdownMenuItem>
