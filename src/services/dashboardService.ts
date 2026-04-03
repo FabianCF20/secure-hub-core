@@ -116,8 +116,8 @@ export const dashboardService = {
 
     const records = global
       ? await recordService.getRecords()
-      : currentUser?.role === "SUPERVISOR"
-        ? await recordService.getRecordsByUser(currentUser.id)
+      : isFieldRole(currentUser?.role)
+        ? await recordService.getRecordsByUser(currentUser!.id)
         : await recordService.getRecordsByClientIds(clientIds);
 
     const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
