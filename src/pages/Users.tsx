@@ -28,6 +28,7 @@ const roleLabels: Record<UserRole, string> = {
   SUPERVISOR: "Supervisor",
   COORDINADOR: "Coordinador",
   CLIENTE: "Cliente",
+  GUARDA: "Guarda de Seguridad",
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -36,6 +37,7 @@ const roleColors: Record<UserRole, string> = {
   SUPERVISOR: "bg-warning",
   COORDINADOR: "bg-info",
   CLIENTE: "bg-success",
+  GUARDA: "bg-amber-600",
 };
 
 export default function Users() {
