@@ -239,6 +239,7 @@ export default function Users() {
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
                   <SelectItem value="COORDINADOR">Coordinador</SelectItem>
                   <SelectItem value="CLIENTE">Cliente</SelectItem>
+                  <SelectItem value="GUARDA">Guarda de Seguridad</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
