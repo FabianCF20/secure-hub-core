@@ -23,7 +23,7 @@ export const navItems: NavItem[] = [
     to: "/",
     icon: LayoutDashboard,
     label: "Dashboard",
-    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"],
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"],
   },
   {
     to: "/clients",
@@ -41,19 +41,19 @@ export const navItems: NavItem[] = [
     to: "/forms",
     icon: FileText,
     label: "Formularios",
-    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"],
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"],
   },
   {
     to: "/records",
     icon: ClipboardList,
     label: "Registros",
-    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"],
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"],
   },
   {
     to: "/minuta",
     icon: BookOpen,
     label: "Minuta",
-    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR"],
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"],
   },
   {
     to: "/reports",

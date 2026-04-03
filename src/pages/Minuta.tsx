@@ -40,7 +40,7 @@ function getTypeConfig(type: AnnotationType) {
 }
 
 export default function Minuta() {
-  const { user, isAdmin, isCentral, isCoordinador, isSupervisor, hasGlobalAccess, clientIds } = useRoleAccess();
+  const { user, isAdmin, isCentral, isCoordinador, isSupervisor, isGuarda, hasGlobalAccess, clientIds } = useRoleAccess();
 
   const [entries, setEntries] = useState<MinuteEntry[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -57,7 +57,7 @@ export default function Minuta() {
   // Filter
   const [filterType, setFilterType] = useState<AnnotationType | "all">("all");
 
-  const canWrite = isSupervisor || isCentral || isCoordinador || isAdmin;
+  const canWrite = isSupervisor || isCentral || isCoordinador || isAdmin || isGuarda;
   const canWriteConsigna = isCentral || isCoordinador || isAdmin;
   const canClose = isCentral || isCoordinador || isAdmin;
 

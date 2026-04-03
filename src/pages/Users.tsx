@@ -28,6 +28,7 @@ const roleLabels: Record<UserRole, string> = {
   SUPERVISOR: "Supervisor",
   COORDINADOR: "Coordinador",
   CLIENTE: "Cliente",
+  GUARDA: "Guarda de Seguridad",
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -36,6 +37,7 @@ const roleColors: Record<UserRole, string> = {
   SUPERVISOR: "bg-warning",
   COORDINADOR: "bg-info",
   CLIENTE: "bg-success",
+  GUARDA: "bg-amber-600",
 };
 
 export default function Users() {
@@ -237,6 +239,7 @@ export default function Users() {
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
                   <SelectItem value="COORDINADOR">Coordinador</SelectItem>
                   <SelectItem value="CLIENTE">Cliente</SelectItem>
+                  <SelectItem value="GUARDA">Guarda de Seguridad</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -384,6 +387,7 @@ export default function Users() {
               <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
               <SelectItem value="COORDINADOR">Coordinador</SelectItem>
               <SelectItem value="CLIENTE">Cliente</SelectItem>
+              <SelectItem value="GUARDA">Guarda de Seguridad</SelectItem>
             </SelectContent>
           </Select>
         </div>

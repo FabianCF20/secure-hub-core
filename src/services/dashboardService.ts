@@ -10,6 +10,10 @@ function isGlobalRole(role?: string) {
   return role === "ADMIN" || role === "CENTRAL";
 }
 
+function isFieldRole(role?: string) {
+  return role === "SUPERVISOR" || role === "GUARDA";
+}
+
 export const dashboardService = {
   async getStats(currentUser?: User | null): Promise<DashboardStats> {
     const global = isGlobalRole(currentUser?.role);
@@ -18,10 +22,9 @@ export const dashboardService = {
     const [clients, forms, records] = await Promise.all([
       global ? clientService.getClients() : clientService.getClientsByIds(clientIds),
       global ? formService.getForms() : formService.getFormsByClientIds(clientIds),
-      global
-        ? recordService.getRecords()
-        : currentUser?.role === "SUPERVISOR"
-          ? recordService.getRecordsByUser(currentUser.id)
+      global ? recordService.getRecords()
+        : isFieldRole(currentUser?.role)
+          ? recordService.getRecordsByUser(currentUser!.id)
           : recordService.getRecordsByClientIds(clientIds),
     ]);
 
@@ -63,8 +66,8 @@ export const dashboardService = {
       global ? clientService.getClients() : clientService.getClientsByIds(clientIds),
       global
         ? recordService.getRecords()
-        : currentUser?.role === "SUPERVISOR"
-          ? recordService.getRecordsByUser(currentUser.id)
+        : isFieldRole(currentUser?.role)
+          ? recordService.getRecordsByUser(currentUser!.id)
           : recordService.getRecordsByClientIds(clientIds),
     ]);
 
@@ -87,8 +90,8 @@ export const dashboardService = {
 
     const records = global
       ? await recordService.getRecords()
-      : currentUser?.role === "SUPERVISOR"
-        ? await recordService.getRecordsByUser(currentUser.id)
+      : isFieldRole(currentUser?.role)
+        ? await recordService.getRecordsByUser(currentUser!.id)
         : await recordService.getRecordsByClientIds(clientIds);
 
     const statusMap = {
@@ -113,8 +116,8 @@ export const dashboardService = {
 
     const records = global
       ? await recordService.getRecords()
-      : currentUser?.role === "SUPERVISOR"
-        ? await recordService.getRecordsByUser(currentUser.id)
+      : isFieldRole(currentUser?.role)
+        ? await recordService.getRecordsByUser(currentUser!.id)
         : await recordService.getRecordsByClientIds(clientIds);
 
     const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -160,8 +163,8 @@ export const dashboardService = {
     const [records, forms] = await Promise.all([
       global
         ? recordService.getRecords()
-        : currentUser?.role === "SUPERVISOR"
-          ? recordService.getRecordsByUser(currentUser.id)
+        : isFieldRole(currentUser?.role)
+          ? recordService.getRecordsByUser(currentUser!.id)
           : recordService.getRecordsByClientIds(clientIds),
       global ? formService.getForms() : formService.getFormsByClientIds(clientIds),
     ]);

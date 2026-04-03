@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, FileDown, Calendar, Download } from "lucide-react";
+import { BarChart3, FileDown, Calendar, Download, FileText as FilePdf } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -14,6 +15,8 @@ import { toast } from "sonner";
 import { recordService, clientService, formService, userService } from "@/services";
 import { Record as RecordType, Client, Form, User, RecordStatus } from "@/models";
 import { LoadingState } from "@/components/shared";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const statusLabels: Record<RecordStatus, string> = {
   PENDING: "Pendiente",
@@ -34,6 +37,7 @@ export default function Reports() {
   const [filterPeriod, setFilterPeriod] = useState("month");
   const [filterStatus, setFilterStatus] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const reportTypes = [
     { id: "records-by-client", name: "Registros por Cliente", description: "Cantidad de formularios diligenciados por cada cliente", icon: BarChart3 },
@@ -127,11 +131,65 @@ export default function Reports() {
     toast.success("Reporte descargado exitosamente");
   }
 
+  function exportPDF() {
+    const data = buildReportData();
+    if (!data.length) { toast.error("No hay datos para exportar"); return; }
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    const reportName = reportTypes.find((r) => r.id === selectedReport)?.name || "Reporte";
+    const dateStr = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(33, 37, 41);
+    doc.text("SecureOps - Panel Administrativo", 14, 18);
+    doc.setFontSize(14);
+    doc.setTextColor(100, 100, 100);
+    doc.text(reportName, 14, 27);
+    doc.setFontSize(10);
+    doc.text(`Generado: ${dateStr}`, 14, 34);
+    
+    // Filters info
+    const filterInfo: string[] = [];
+    if (filterClient !== "all") filterInfo.push(`Cliente: ${getClientName(filterClient)}`);
+    filterInfo.push(`Período: ${filterPeriod === "week" ? "Última semana" : filterPeriod === "month" ? "Último mes" : filterPeriod === "quarter" ? "Último trimestre" : "Último año"}`);
+    if (filterStatus !== "all") filterInfo.push(`Estado: ${statusLabels[filterStatus as RecordStatus] || filterStatus}`);
+    doc.text(filterInfo.join(" | "), 14, 40);
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, 43, 283, 43);
+
+    const headers = Object.keys(data[0]);
+    const rows = data.map((row) => headers.map((h) => String((row as any)[h] ?? "")));
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 47,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 10);
+      doc.text("SecureOps © " + new Date().getFullYear(), 14, doc.internal.pageSize.getHeight() - 10);
+    }
+
+    doc.save(`${reportName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("Reporte PDF descargado exitosamente");
+  }
+
   function exportDetailedCSV() {
     const filtered = getFilteredRecords();
     if (!filtered.length) { toast.error("No hay datos para exportar"); return; }
 
-    // Get all unique field labels across all records
     const allFieldLabels = new Set<string>();
     filtered.forEach((r) => {
       const form = forms.find((f) => f.id === r.formId);
@@ -181,9 +239,104 @@ export default function Reports() {
     toast.success("Reporte completo descargado exitosamente");
   }
 
+  function exportMassivePDF() {
+    const filtered = getFilteredRecords();
+    const selected = selectedIds.size > 0
+      ? filtered.filter((r) => selectedIds.has(r.id))
+      : filtered;
+
+    if (!selected.length) { toast.error("No hay registros seleccionados"); return; }
+
+    const doc = new jsPDF();
+    const dateStr = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
+
+    selected.forEach((record, idx) => {
+      if (idx > 0) doc.addPage();
+
+      const form = forms.find((f) => f.id === record.formId);
+
+      // Header
+      doc.setFontSize(16);
+      doc.setTextColor(33, 37, 41);
+      doc.text("SecureOps - Registro Diligenciado", 14, 18);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generado: ${dateStr}`, 14, 25);
+      doc.line(14, 28, 196, 28);
+
+      // Record info
+      doc.setFontSize(12);
+      doc.setTextColor(33, 37, 41);
+      doc.text(`Formulario: ${form?.name || "—"}`, 14, 36);
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${getClientName(record.clientId)}`, 14, 43);
+      doc.text(`Usuario: ${getUserName(record.userId)}`, 14, 49);
+      doc.text(`Fecha: ${formatDate(record.createdAt)}`, 14, 55);
+      doc.text(`Estado: ${statusLabels[record.status]}`, 14, 61);
+      if (record.observations) {
+        doc.text(`Observaciones: ${record.observations}`, 14, 67);
+      }
+
+      // Answers table
+      const answerRows = record.answers.map((a) => {
+        const field = form?.fields.find((fl) => fl.id === a.fieldId);
+        return [field?.label || a.fieldId, a.value || "—"];
+      });
+
+      autoTable(doc, {
+        head: [["Campo", "Respuesta"]],
+        body: answerRows,
+        startY: record.observations ? 73 : 67,
+        styles: { fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Location
+      if (record.location) {
+        const finalY = (doc as any).lastAutoTable?.finalY || 120;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Ubicación: ${record.location.latitude.toFixed(6)}, ${record.location.longitude.toFixed(6)}`, 14, finalY + 8);
+      }
+    });
+
+    // Page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 10);
+      doc.text("SecureOps © " + new Date().getFullYear(), 14, doc.internal.pageSize.getHeight() - 10);
+    }
+
+    doc.save(`Registros_Masivo_${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success(`${selected.length} registro(s) exportados a PDF`);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const filtered = getFilteredRecords();
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((r) => r.id)));
+    }
+  }
+
   if (loading) return <LoadingState message="Cargando datos del reporte..." />;
 
   const reportData = buildReportData();
+  const filteredRecords = getFilteredRecords();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -230,7 +383,7 @@ export default function Reports() {
                 <CardTitle>{reportTypes.find((r) => r.id === selectedReport)?.name}</CardTitle>
                 <CardDescription>{reportTypes.find((r) => r.id === selectedReport)?.description}</CardDescription>
               </div>
-              <Badge variant="outline">{getFilteredRecords().length} registros</Badge>
+              <Badge variant="outline">{filteredRecords.length} registros</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -277,6 +430,14 @@ export default function Reports() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {selectedReport === "records-by-period" && (
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={selectedIds.size === filteredRecords.length && filteredRecords.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </TableHead>
+                      )}
                       {Object.keys(reportData[0]).map((key) => (
                         <TableHead key={key}>{key}</TableHead>
                       ))}
@@ -285,6 +446,14 @@ export default function Reports() {
                   <TableBody>
                     {reportData.slice(0, 50).map((row, i) => (
                       <TableRow key={i}>
+                        {selectedReport === "records-by-period" && filteredRecords[i] && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.has(filteredRecords[i].id)}
+                              onCheckedChange={() => toggleSelect(filteredRecords[i].id)}
+                            />
+                          </TableCell>
+                        )}
                         {Object.values(row).map((val, j) => (
                           <TableCell key={j} className="text-sm">{String(val)}</TableCell>
                         ))}
@@ -301,14 +470,29 @@ export default function Reports() {
               </div>
             )}
 
+            {selectedIds.size > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{selectedIds.size} registro(s) seleccionados</span>
+                <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Limpiar selección</Button>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end flex-wrap">
               <Button variant="outline" onClick={exportCSV} disabled={!reportData.length}>
                 <FileDown className="mr-2 h-4 w-4" />
-                Exportar Resumen CSV
+                CSV Resumen
               </Button>
-              <Button onClick={exportDetailedCSV} disabled={!getFilteredRecords().length}>
+              <Button variant="outline" onClick={exportPDF} disabled={!reportData.length}>
+                <FilePdf className="mr-2 h-4 w-4" />
+                PDF Resumen
+              </Button>
+              <Button variant="outline" onClick={exportDetailedCSV} disabled={!filteredRecords.length}>
                 <Download className="mr-2 h-4 w-4" />
-                Exportar Detalle Completo
+                CSV Detalle
+              </Button>
+              <Button onClick={exportMassivePDF} disabled={!filteredRecords.length}>
+                <FilePdf className="mr-2 h-4 w-4" />
+                {selectedIds.size > 0 ? `PDF Masivo (${selectedIds.size})` : "PDF Masivo (todos)"}
               </Button>
             </div>
           </CardContent>

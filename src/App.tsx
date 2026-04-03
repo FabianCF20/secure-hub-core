@@ -52,7 +52,7 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/forms" element={
-                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"]}>
                     <Forms />
                   </ProtectedRoute>
                 } />
@@ -67,22 +67,22 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/forms/fill/:formId" element={
-                  <ProtectedRoute allowedRoles={["SUPERVISOR"]}>
+                  <ProtectedRoute allowedRoles={["SUPERVISOR", "GUARDA"]}>
                     <FormFill />
                   </ProtectedRoute>
                 } />
                 <Route path="/records" element={
-                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"]}>
                     <Records />
                   </ProtectedRoute>
                 } />
                 <Route path="/records/:recordId" element={
-                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"]}>
                     <RecordDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="/minuta" element={
-                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"]}>
                     <Minuta />
                   </ProtectedRoute>
                 } />
