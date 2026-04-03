@@ -27,7 +27,7 @@ const statusConfig: { [key in RecordStatus]: { label: string; className: string 
 
 export default function Records() {
   const navigate = useNavigate();
-  const { canValidate, hasGlobalAccess, clientIds: userClientIds, isSupervisor, user } = useRoleAccess();
+  const { canValidate, hasGlobalAccess, clientIds: userClientIds, isSupervisor, isGuarda, user } = useRoleAccess();
   const [records, setRecords] = useState<RecordType[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [forms, setForms] = useState<Form[]>([]);
