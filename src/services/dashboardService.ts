@@ -163,8 +163,8 @@ export const dashboardService = {
     const [records, forms] = await Promise.all([
       global
         ? recordService.getRecords()
-        : currentUser?.role === "SUPERVISOR"
-          ? recordService.getRecordsByUser(currentUser.id)
+        : isFieldRole(currentUser?.role)
+          ? recordService.getRecordsByUser(currentUser!.id)
           : recordService.getRecordsByClientIds(clientIds),
       global ? formService.getForms() : formService.getFormsByClientIds(clientIds),
     ]);
