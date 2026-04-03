@@ -40,7 +40,7 @@ function getTypeConfig(type: AnnotationType) {
 }
 
 export default function Minuta() {
-  const { user, isAdmin, isCentral, isCoordinador, isSupervisor, hasGlobalAccess, clientIds } = useRoleAccess();
+  const { user, isAdmin, isCentral, isCoordinador, isSupervisor, isGuarda, hasGlobalAccess, clientIds } = useRoleAccess();
 
   const [entries, setEntries] = useState<MinuteEntry[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
