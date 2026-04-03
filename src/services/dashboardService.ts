@@ -10,6 +10,10 @@ function isGlobalRole(role?: string) {
   return role === "ADMIN" || role === "CENTRAL";
 }
 
+function isFieldRole(role?: string) {
+  return role === "SUPERVISOR" || role === "GUARDA";
+}
+
 export const dashboardService = {
   async getStats(currentUser?: User | null): Promise<DashboardStats> {
     const global = isGlobalRole(currentUser?.role);
