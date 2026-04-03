@@ -1,13 +1,14 @@
 // ==========================================
 // FIRESTORE SECURITY RULES
 // ==========================================
-// Roles: ADMIN, CENTRAL, SUPERVISOR, COORDINADOR, CLIENTE
+// Roles: ADMIN, CENTRAL, SUPERVISOR, COORDINADOR, CLIENTE, GUARDA
 //
 // ADMIN: CRUD usuarios, clientes. Todo acceso.
 // CENTRAL: Crea formularios. Ve TODOS los formularios. Valida formularios de cualquier cliente.
 // SUPERVISOR: Diligencia formularios. No valida.
 // COORDINADOR: Ve y valida formularios de sus clientes asignados.
 // CLIENTE: Solo ve formularios/registros de su cuenta.
+// GUARDA: Diligencia formularios y escribe en minuta. No valida.
 //
 // Usuarios tienen clientIds[] (array). Puede estar vacío.
 // ==========================================
@@ -53,6 +54,10 @@ service cloud.firestore {
       return isAuthenticated() && userRole() == 'CLIENTE';
     }
 
+    function isGuarda() {
+      return isAuthenticated() && userRole() == 'GUARDA';
+    }
+
     function isActiveUser() {
       return isAuthenticated() && getUserProfile().isActive == true;
     }
@@ -67,8 +72,6 @@ service cloud.firestore {
     // ============================================
 
     // --- CLIENTES ---
-    // ADMIN: CRUD completo
-    // Resto: lectura de clientes que tengan asignados
     match /clients/{clientId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
@@ -80,8 +83,6 @@ service cloud.firestore {
     }
 
     // --- USUARIOS ---
-    // ADMIN: CRUD completo
-    // Otros: lectura de su propio perfil
     match /users/{userId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
@@ -96,11 +97,6 @@ service cloud.firestore {
     }
 
     // --- FORMULARIOS ---
-    // ADMIN: CRUD completo
-    // CENTRAL: CRUD completo (crea y ve todos)
-    // SUPERVISOR: lectura de formularios de sus clientes
-    // COORDINADOR: lectura de formularios de sus clientes
-    // CLIENTE: lectura de formularios de su cliente
     match /forms/{formId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
@@ -114,21 +110,16 @@ service cloud.firestore {
     }
 
     // --- REGISTROS ---
-    // ADMIN: todo
-    // CENTRAL: lectura y validación de todos los registros
-    // SUPERVISOR: creación + lectura de sus propios registros
-    // COORDINADOR: lectura y validación de registros de sus clientes
-    // CLIENTE: lectura de registros de su cliente
     match /records/{recordId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
         isCentral() ||
-        (isSupervisor() && resource.data.userId == request.auth.uid) ||
+        ((isSupervisor() || isGuarda()) && resource.data.userId == request.auth.uid) ||
         (isCoordinador() && hasClient(resource.data.clientId)) ||
         (isCliente() && hasClient(resource.data.clientId))
       );
       allow create: if isAuthenticated() && isActiveUser() && (
-        isSupervisor() &&
+        (isSupervisor() || isGuarda()) &&
         request.resource.data.userId == request.auth.uid
       );
       // Validar (update status) — CENTRAL y COORDINADOR (de sus clientes)
@@ -141,16 +132,16 @@ service cloud.firestore {
     }
 
     // --- MINUTA DE CONTROL ---
-    // Inmutable: no se puede editar ni borrar (excepto cerrar consignas)
     match /minuteEntries/{entryId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
         isCentral() ||
         (isSupervisor() && hasClient(resource.data.clientId)) ||
-        (isCoordinador() && hasClient(resource.data.clientId))
+        (isCoordinador() && hasClient(resource.data.clientId)) ||
+        (isGuarda() && hasClient(resource.data.clientId))
       );
       allow create: if isAuthenticated() && isActiveUser() && (
-        isAdmin() || isCentral() || isSupervisor() || isCoordinador()
+        isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
       ) && request.resource.data.userId == request.auth.uid;
       // Solo permitir cerrar consignas (update isClosed)
       allow update: if isAuthenticated() && isActiveUser() && (
