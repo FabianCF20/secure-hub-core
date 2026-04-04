@@ -1,24 +1,16 @@
 // ==========================================
-// FIREBASE RECORD SERVICE
+// FIREBASE RECORD SERVICE (with cache)
 // ==========================================
-// Operaciones CRUD de registros en Firestore.
-
 import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  addDoc,
-  updateDoc,
-  query,
-  where,
-  orderBy,
+  collection, doc, getDocs, getDoc, addDoc, updateDoc,
+  query, where, orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { COLLECTIONS } from "@/firebase/collections";
 import { recordConverter } from "@/firebase/converters";
 import { createUserFriendlyError } from "@/lib/firebase-error";
 import { ensureFirebaseSession } from "@/lib/firebase-session";
+import { cachedQuery, invalidateCache } from "@/lib/query-cache";
 import { Record, RecordStatus } from "@/models";
 
 function getRecordsRef() {
@@ -28,10 +20,12 @@ function getRecordsRef() {
 export const firebaseRecordService = {
   async getRecords(): Promise<Record[]> {
     try {
-      await ensureFirebaseSession();
-      const q = query(getRecordsRef(), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => doc.data());
+      return await cachedQuery("records:all", async () => {
+        await ensureFirebaseSession();
+        const q = query(getRecordsRef(), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => doc.data());
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros desde Firebase.");
     }
@@ -50,10 +44,12 @@ export const firebaseRecordService = {
 
   async getRecordsByClient(clientId: string): Promise<Record[]> {
     try {
-      await ensureFirebaseSession();
-      const q = query(getRecordsRef(), where("clientId", "==", clientId), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => doc.data());
+      return await cachedQuery(`records:client:${clientId}`, async () => {
+        await ensureFirebaseSession();
+        const q = query(getRecordsRef(), where("clientId", "==", clientId), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => doc.data());
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros del cliente seleccionado.");
     }
@@ -61,10 +57,12 @@ export const firebaseRecordService = {
 
   async getRecordsByForm(formId: string): Promise<Record[]> {
     try {
-      await ensureFirebaseSession();
-      const q = query(getRecordsRef(), where("formId", "==", formId), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => doc.data());
+      return await cachedQuery(`records:form:${formId}`, async () => {
+        await ensureFirebaseSession();
+        const q = query(getRecordsRef(), where("formId", "==", formId), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => doc.data());
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros del formulario seleccionado.");
     }
@@ -72,10 +70,12 @@ export const firebaseRecordService = {
 
   async getRecordsByUser(userId: string): Promise<Record[]> {
     try {
-      await ensureFirebaseSession();
-      const q = query(getRecordsRef(), where("userId", "==", userId), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => doc.data());
+      return await cachedQuery(`records:user:${userId}`, async () => {
+        await ensureFirebaseSession();
+        const q = query(getRecordsRef(), where("userId", "==", userId), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => doc.data());
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros del usuario seleccionado.");
     }
@@ -83,10 +83,12 @@ export const firebaseRecordService = {
 
   async getRecordsByStatus(status: RecordStatus): Promise<Record[]> {
     try {
-      await ensureFirebaseSession();
-      const q = query(getRecordsRef(), where("status", "==", status), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => doc.data());
+      return await cachedQuery(`records:status:${status}`, async () => {
+        await ensureFirebaseSession();
+        const q = query(getRecordsRef(), where("status", "==", status), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((doc) => doc.data());
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros por estado.");
     }
@@ -96,6 +98,7 @@ export const firebaseRecordService = {
     try {
       await ensureFirebaseSession();
       const docRef = await addDoc(getRecordsRef(), record as Record);
+      invalidateCache("records:");
       return { ...record, id: docRef.id } as Record;
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudo guardar el registro en Firestore.");
@@ -109,6 +112,7 @@ export const firebaseRecordService = {
       const updates: Partial<Record> = { status };
       if (observations !== undefined) updates.observations = observations;
       await updateDoc(docRef, updates);
+      invalidateCache("records:");
       const updated = await this.getRecordById(recordId);
       if (!updated) throw new Error(`No se encontró el registro ${recordId} después de actualizarlo.`);
       return updated;
@@ -135,16 +139,19 @@ export const firebaseRecordService = {
 
   async getRecordsByClientIds(clientIds: string[]): Promise<Record[]> {
     if (!clientIds.length) return [];
+    const cacheKey = `records:clientIds:${clientIds.sort().join(",")}`;
     try {
-      await ensureFirebaseSession();
-      const results: Record[] = [];
-      for (let i = 0; i < clientIds.length; i += 30) {
-        const batch = clientIds.slice(i, i + 30);
-        const q = query(getRecordsRef(), where("clientId", "in", batch), orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
-        results.push(...snapshot.docs.map((d) => d.data()));
-      }
-      return results;
+      return await cachedQuery(cacheKey, async () => {
+        await ensureFirebaseSession();
+        const results: Record[] = [];
+        for (let i = 0; i < clientIds.length; i += 30) {
+          const batch = clientIds.slice(i, i + 30);
+          const q = query(getRecordsRef(), where("clientId", "in", batch), orderBy("createdAt", "desc"));
+          const snapshot = await getDocs(q);
+          results.push(...snapshot.docs.map((d) => d.data()));
+        }
+        return results;
+      });
     } catch (error) {
       throw createUserFriendlyError(error, "No se pudieron cargar los registros asignados.");
     }

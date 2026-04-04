@@ -6,7 +6,6 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dashboardService } from "@/services";
 import { DashboardStats } from "@/models";
 import {
@@ -33,7 +32,6 @@ function StatCard({ title, value, icon: Icon, description, variant }: StatCardPr
     warning: "stat-card-warning",
     info: "stat-card-info",
   };
-
   return (
     <Card className={`${styles[variant]} border-0 text-primary-foreground`}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -50,18 +48,8 @@ function StatCard({ title, value, icon: Icon, description, variant }: StatCardPr
 
 /* ── Status Badge ── */
 function StatusDot({ status }: { status?: string }) {
-  const colors: Record<string, string> = {
-    PENDING: "bg-warning",
-    SENT: "bg-info",
-    APPROVED: "bg-success",
-    REJECTED: "bg-destructive",
-  };
-  const labels: Record<string, string> = {
-    PENDING: "Pendiente",
-    SENT: "Enviado",
-    APPROVED: "Aprobado",
-    REJECTED: "Rechazado",
-  };
+  const colors: Record<string, string> = { PENDING: "bg-warning", SENT: "bg-info", APPROVED: "bg-success", REJECTED: "bg-destructive" };
+  const labels: Record<string, string> = { PENDING: "Pendiente", SENT: "Enviado", APPROVED: "Aprobado", REJECTED: "Rechazado" };
   return (
     <Badge variant="outline" className="shrink-0 gap-1.5 text-xs">
       <span className={`h-2 w-2 rounded-full ${colors[status || ""] || "bg-muted"}`} />
@@ -71,13 +59,7 @@ function StatusDot({ status }: { status?: string }) {
 }
 
 /* ── Activity Item ── */
-interface ActivityItem {
-  id: string;
-  type: "record" | "form" | "user";
-  description: string;
-  timestamp: string;
-  status?: string;
-}
+interface ActivityItem { id: string; type: "record" | "form" | "user"; description: string; timestamp: string; status?: string; }
 
 function ActivityRow({ activity, formatDate }: { activity: ActivityItem; formatDate: (d: string) => string }) {
   return (
@@ -126,18 +108,13 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const [statsData, byClient, byStatus, trend, activity] = await Promise.all([
-          dashboardService.getStats(user),
-          dashboardService.getRecordsByClientChart(user),
-          dashboardService.getRecordsByStatusChart(user),
-          dashboardService.getMonthlyTrend(user),
-          dashboardService.getRecentActivity(user),
-        ]);
-        setStats(statsData);
-        setRecordsByClient(byClient);
-        setRecordsByStatus(byStatus);
-        setMonthlyTrend(trend);
-        setRecentActivity(activity);
+        // Single consolidated call instead of 5 separate ones
+        const data = await dashboardService.getAll(user);
+        setStats(data.stats);
+        setRecordsByClient(data.recordsByClient);
+        setRecordsByStatus(data.recordsByStatus);
+        setMonthlyTrend(data.monthlyTrend);
+        setRecentActivity(data.recentActivity);
       } catch (error) {
         console.error("Error loading dashboard:", error);
       } finally {
@@ -152,18 +129,11 @@ export default function Dashboard() {
 
   if (loading || !stats) return <LoadingState message="Cargando dashboard..." />;
 
-  const COLORS = [
-    "hsl(38, 92%, 50%)",
-    "hsl(199, 89%, 48%)",
-    "hsl(142, 71%, 45%)",
-    "hsl(0, 72%, 51%)",
-  ];
+  const COLORS = ["hsl(38, 92%, 50%)", "hsl(199, 89%, 48%)", "hsl(142, 71%, 45%)", "hsl(0, 72%, 51%)"];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title="Dashboard" description="Vista general del sistema de formularios operativos" />
-
-      {/* Stats Grid */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Clientes Activos" value={stats.totalClients} icon={Building2} description="Empresas registradas" variant="primary" />
         <StatCard title="Usuarios" value={stats.totalUsers} icon={Users} description="Usuarios activos" variant="info" />
@@ -173,13 +143,9 @@ export default function Dashboard() {
         <StatCard title="Por Aprobar" value={stats.pendingApproval} icon={AlertCircle} description="Pendientes de revisión" variant="warning" />
       </div>
 
-      {/* Monthly Trend Chart - Full Width */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5 text-accent" />
-            Tendencia Mensual
-          </CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Activity className="h-5 w-5 text-accent" />Tendencia Mensual</CardTitle>
           <CardDescription>Registros creados, aprobados y rechazados en los últimos 6 meses</CardDescription>
         </CardHeader>
         <CardContent>
@@ -187,70 +153,34 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyTrend}>
                 <defs>
-                  <linearGradient id="gradRegistros" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradAprobados" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradRechazados" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0} />
-                  </linearGradient>
+                  <linearGradient id="gradRegistros" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="gradAprobados" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="gradRechazados" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(0, 72%, 51%)" stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                 <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Area
-                  type="monotone"
-                  dataKey="registros"
-                  name="Total Registros"
-                  stroke="hsl(199, 89%, 48%)"
-                  fill="url(#gradRegistros)"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="aprobados"
-                  name="Aprobados"
-                  stroke="hsl(142, 71%, 45%)"
-                  fill="url(#gradAprobados)"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="rechazados"
-                  name="Rechazados"
-                  stroke="hsl(0, 72%, 51%)"
-                  fill="url(#gradRechazados)"
-                  strokeWidth={2}
-                />
+                <Area type="monotone" dataKey="registros" name="Total Registros" stroke="hsl(199, 89%, 48%)" fill="url(#gradRegistros)" strokeWidth={2} />
+                <Area type="monotone" dataKey="aprobados" name="Aprobados" stroke="hsl(142, 71%, 45%)" fill="url(#gradAprobados)" strokeWidth={2} />
+                <Area type="monotone" dataKey="rechazados" name="Rechazados" stroke="hsl(0, 72%, 51%)" fill="url(#gradRechazados)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bar + Pie Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Registros por Cliente
-            </CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Registros por Cliente</CardTitle>
             <CardDescription>Distribución de registros diligenciados</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               {recordsByClient.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  Sin datos de registros por cliente
-                </div>
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Sin datos de registros por cliente</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={recordsByClient} layout="vertical">
@@ -265,33 +195,17 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" />
-              Estado de Registros
-            </CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" />Estado de Registros</CardTitle>
             <CardDescription>Distribución por estado de aprobación</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={recordsByStatus}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""}
-                    labelLine={false}
-                  >
-                    {recordsByStatus.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                  <Pie data={recordsByStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""} labelLine={false}>
+                    {recordsByStatus.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -302,7 +216,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -310,22 +223,15 @@ export default function Dashboard() {
             <CardDescription>Últimos registros diligenciados</CardDescription>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link to="/records">
-              Ver todos
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
+            <Link to="/records">Ver todos<ArrowRight className="ml-2 h-4 w-4" /></Link>
           </Button>
         </CardHeader>
         <CardContent>
           {recentActivity.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-              No hay actividad reciente
-            </div>
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">No hay actividad reciente</div>
           ) : (
             <div className="space-y-0">
-              {recentActivity.map((activity) => (
-                <ActivityRow key={activity.id} activity={activity} formatDate={formatDate} />
-              ))}
+              {recentActivity.map((activity) => (<ActivityRow key={activity.id} activity={activity} formatDate={formatDate} />))}
             </div>
           )}
         </CardContent>

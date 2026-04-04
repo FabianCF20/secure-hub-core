@@ -1,13 +1,9 @@
 // ==========================================
 // FIREBASE CONFIGURATION
 // ==========================================
-// Inicializa Firebase con las credenciales del proyecto ainca-6cf4d.
-// Las claves son PÚBLICAS (publishable keys).
-// La seguridad se maneja con Firebase Auth + Firestore Security Rules.
-
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -24,11 +20,19 @@ export const USE_FIREBASE = true;
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Enable offline persistence to reduce reads and support offline usage
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+  }),
+});
+
 export const storage = getStorage(app);
 
-// Segunda instancia de Firebase para crear usuarios sin afectar la sesión actual
+// Secondary app for creating users without affecting current session
 export const secondaryApp = initializeApp(firebaseConfig, "secondary");
 export const secondaryAuth = getAuth(secondaryApp);
 
-console.log("[Firebase] Inicializado con proyecto:", firebaseConfig.projectId);
+console.log("[Firebase] Inicializado con persistencia offline habilitada");
