@@ -186,7 +186,7 @@ export default function Dashboard() {
                   <BarChart data={recordsByClient} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10 }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="Registros" fill="hsl(199, 89%, 48%)" radius={[0, 6, 6, 0]} />
                   </BarChart>
