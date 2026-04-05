@@ -255,26 +255,27 @@ export default function FormBuilder() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/forms")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="page-title">
+            <h1 className="page-title text-lg sm:text-2xl">
               {isEditing ? "Editar Formulario" : "Nuevo Formulario"}
             </h1>
-            <p className="page-description">
+            <p className="page-description text-xs sm:text-sm">
               {isEditing ? "Modifica la estructura del formulario" : "Diseña un nuevo formulario operativo"}
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setPreviewOpen(true)} disabled={fields.length === 0}>
+        <div className="flex gap-2 ml-14 sm:ml-0">
+          <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)} disabled={fields.length === 0}>
             <Eye className="mr-2 h-4 w-4" />
-            Vista Previa
+            <span className="hidden sm:inline">Vista Previa</span>
+            <span className="sm:hidden">Previa</span>
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
             {saving ? "Guardando..." : "Guardar"}
           </Button>
