@@ -25,6 +25,7 @@ const roleLabels: Record<string, string> = {
   SUPERVISOR: "Supervisor",
   COORDINADOR: "Coordinador",
   CLIENTE: "Cliente",
+  GUARDA: "Guarda",
 };
 
 export function Topbar({ sidebarCollapsed, onMobileMenuToggle, isMobile }: TopbarProps) {
