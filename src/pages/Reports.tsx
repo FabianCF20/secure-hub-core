@@ -389,7 +389,7 @@ export default function Reports() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>Cliente</Label>
                 <Select value={filterClient} onValueChange={setFilterClient}>
