@@ -345,34 +345,36 @@ export default function Reports() {
         <p className="page-description">Genera y exporta reportes del sistema</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>Tipos de Reporte</CardTitle>
             <CardDescription>Selecciona el reporte a generar</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {reportTypes.map((report) => (
-              <button
-                key={report.id}
-                onClick={() => setSelectedReport(report.id)}
-                className={`w-full p-4 rounded-lg text-left transition-colors ${
-                  selectedReport === report.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 hover:bg-muted"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <report.icon className="h-5 w-5" />
-                  <div>
-                    <p className="font-medium">{report.name}</p>
-                    <p className={`text-xs ${selectedReport === report.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                      {report.description}
-                    </p>
+          <CardContent>
+            <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:space-y-2 lg:gap-0">
+              {reportTypes.map((report) => (
+                <button
+                  key={report.id}
+                  onClick={() => setSelectedReport(report.id)}
+                  className={`flex-shrink-0 p-3 lg:p-4 rounded-lg text-left transition-colors ${
+                    selectedReport === report.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 hover:bg-muted"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    <report.icon className="h-4 w-4 lg:h-5 lg:w-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm whitespace-nowrap lg:whitespace-normal">{report.name}</p>
+                      <p className={`text-xs hidden lg:block ${selectedReport === report.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        {report.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
