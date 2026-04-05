@@ -186,7 +186,7 @@ export default function Dashboard() {
                   <BarChart data={recordsByClient} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10 }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="Registros" fill="hsl(199, 89%, 48%)" radius={[0, 6, 6, 0]} />
                   </BarChart>
@@ -204,7 +204,7 @@ export default function Dashboard() {
             <div className="h-64 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={recordsByStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""} labelLine={false}>
+                  <Pie data={recordsByStatus} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={4} dataKey="value" label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""} labelLine={false}>
                     {recordsByStatus.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />

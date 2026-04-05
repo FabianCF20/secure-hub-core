@@ -345,49 +345,51 @@ export default function Reports() {
         <p className="page-description">Genera y exporta reportes del sistema</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>Tipos de Reporte</CardTitle>
             <CardDescription>Selecciona el reporte a generar</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {reportTypes.map((report) => (
-              <button
-                key={report.id}
-                onClick={() => setSelectedReport(report.id)}
-                className={`w-full p-4 rounded-lg text-left transition-colors ${
-                  selectedReport === report.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 hover:bg-muted"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <report.icon className="h-5 w-5" />
-                  <div>
-                    <p className="font-medium">{report.name}</p>
-                    <p className={`text-xs ${selectedReport === report.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                      {report.description}
-                    </p>
+          <CardContent>
+            <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:space-y-2 lg:gap-0">
+              {reportTypes.map((report) => (
+                <button
+                  key={report.id}
+                  onClick={() => setSelectedReport(report.id)}
+                  className={`flex-shrink-0 p-3 lg:p-4 rounded-lg text-left transition-colors ${
+                    selectedReport === report.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 hover:bg-muted"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    <report.icon className="h-4 w-4 lg:h-5 lg:w-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm whitespace-nowrap lg:whitespace-normal">{report.name}</p>
+                      <p className={`text-xs hidden lg:block ${selectedReport === report.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        {report.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <CardTitle>{reportTypes.find((r) => r.id === selectedReport)?.name}</CardTitle>
-                <CardDescription>{reportTypes.find((r) => r.id === selectedReport)?.description}</CardDescription>
+                <CardTitle className="text-base sm:text-lg">{reportTypes.find((r) => r.id === selectedReport)?.name}</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">{reportTypes.find((r) => r.id === selectedReport)?.description}</CardDescription>
               </div>
               <Badge variant="outline">{filteredRecords.length} registros</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>Cliente</Label>
                 <Select value={filterClient} onValueChange={setFilterClient}>
@@ -477,22 +479,22 @@ export default function Reports() {
               </div>
             )}
 
-            <div className="flex gap-3 justify-end flex-wrap">
-              <Button variant="outline" onClick={exportCSV} disabled={!reportData.length}>
-                <FileDown className="mr-2 h-4 w-4" />
-                CSV Resumen
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:justify-end">
+              <Button variant="outline" size="sm" onClick={exportCSV} disabled={!reportData.length}>
+                <FileDown className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">CSV Resumen</span>
               </Button>
-              <Button variant="outline" onClick={exportPDF} disabled={!reportData.length}>
-                <FilePdf className="mr-2 h-4 w-4" />
-                PDF Resumen
+              <Button variant="outline" size="sm" onClick={exportPDF} disabled={!reportData.length}>
+                <FilePdf className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">PDF Resumen</span>
               </Button>
-              <Button variant="outline" onClick={exportDetailedCSV} disabled={!filteredRecords.length}>
-                <Download className="mr-2 h-4 w-4" />
-                CSV Detalle
+              <Button variant="outline" size="sm" onClick={exportDetailedCSV} disabled={!filteredRecords.length}>
+                <Download className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">CSV Detalle</span>
               </Button>
-              <Button onClick={exportMassivePDF} disabled={!filteredRecords.length}>
-                <FilePdf className="mr-2 h-4 w-4" />
-                {selectedIds.size > 0 ? `PDF Masivo (${selectedIds.size})` : "PDF Masivo (todos)"}
+              <Button size="sm" onClick={exportMassivePDF} disabled={!filteredRecords.length}>
+                <FilePdf className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">{selectedIds.size > 0 ? `PDF (${selectedIds.size})` : "PDF Masivo"}</span>
               </Button>
             </div>
           </CardContent>
