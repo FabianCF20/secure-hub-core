@@ -134,11 +134,27 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
+  }
+
+  /* Ensure touch targets are at least 44px */
+  @media (pointer: coarse) {
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Exclude icon buttons that are explicitly small */
+    button[class*="h-7"], button[class*="h-6"] {
+      min-height: 32px;
+      min-width: 32px;
+    }
   }
 
   /* Custom scrollbar */

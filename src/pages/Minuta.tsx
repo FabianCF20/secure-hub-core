@@ -259,19 +259,21 @@ export default function Minuta() {
       )}
 
       {/* Filtro */}
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select value={filterType} onValueChange={(v) => setFilterType(v as AnnotationType | "all")}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las anotaciones</SelectItem>
-            {ANNOTATION_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3">
+          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Select value={filterType} onValueChange={(v) => setFilterType(v as AnnotationType | "all")}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las anotaciones</SelectItem>
+              {ANNOTATION_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <span className="text-sm text-muted-foreground">
           {filteredEntries.length} registro(s)
         </span>
