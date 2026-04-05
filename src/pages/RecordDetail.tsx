@@ -233,38 +233,40 @@ export default function RecordDetail() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/records")}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/records")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="page-title">{form.name}</h1>
-            <p className="page-description">Detalle del registro diligenciado</p>
+          <div className="min-w-0">
+            <h1 className="page-title text-lg sm:text-2xl truncate">{form.name}</h1>
+            <p className="page-description text-xs sm:text-sm">Detalle del registro</p>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={exportRecordCSV}>
-            <Download className="mr-2 h-4 w-4" />
-            Descargar
+        <div className="flex gap-2 flex-wrap ml-11 sm:ml-0">
+          <Button variant="outline" size="sm" onClick={exportRecordCSV}>
+            <Download className="mr-1 h-4 w-4" />
+            <span className="text-xs sm:text-sm">Descargar</span>
           </Button>
           {actions && (
             <>
               <Button
                 variant="outline"
+                size="sm"
                 className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                 onClick={() => openActionDialog(actions.reject)}
               >
-                <X className="mr-2 h-4 w-4" />
-                Rechazar
+                <X className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">Rechazar</span>
               </Button>
               {actions.approve && (
                 <Button
+                  size="sm"
                   className="bg-success hover:bg-success/90"
                   onClick={() => openActionDialog(actions.approve!)}
                 >
-                  <Check className="mr-2 h-4 w-4" />
-                  {actions.approveLabel}
+                  <Check className="mr-1 h-4 w-4" />
+                  <span className="text-xs sm:text-sm">{actions.approveLabel}</span>
                 </Button>
               )}
             </>
