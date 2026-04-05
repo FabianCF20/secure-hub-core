@@ -389,7 +389,7 @@ export default function FormBuilder() {
 
       {/* Fields List */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle>Campos del Formulario</CardTitle>
             <CardDescription>
@@ -398,7 +398,7 @@ export default function FormBuilder() {
                 : `${fields.length} campo(s) configurados`}
             </CardDescription>
           </div>
-          <Button onClick={openAddField}>
+          <Button size="sm" onClick={openAddField}>
             <Plus className="mr-2 h-4 w-4" />
             Agregar Campo
           </Button>
