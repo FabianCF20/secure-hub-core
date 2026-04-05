@@ -479,22 +479,22 @@ export default function Reports() {
               </div>
             )}
 
-            <div className="flex gap-3 justify-end flex-wrap">
-              <Button variant="outline" onClick={exportCSV} disabled={!reportData.length}>
-                <FileDown className="mr-2 h-4 w-4" />
-                CSV Resumen
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:justify-end">
+              <Button variant="outline" size="sm" onClick={exportCSV} disabled={!reportData.length}>
+                <FileDown className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">CSV Resumen</span>
               </Button>
-              <Button variant="outline" onClick={exportPDF} disabled={!reportData.length}>
-                <FilePdf className="mr-2 h-4 w-4" />
-                PDF Resumen
+              <Button variant="outline" size="sm" onClick={exportPDF} disabled={!reportData.length}>
+                <FilePdf className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">PDF Resumen</span>
               </Button>
-              <Button variant="outline" onClick={exportDetailedCSV} disabled={!filteredRecords.length}>
-                <Download className="mr-2 h-4 w-4" />
-                CSV Detalle
+              <Button variant="outline" size="sm" onClick={exportDetailedCSV} disabled={!filteredRecords.length}>
+                <Download className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">CSV Detalle</span>
               </Button>
-              <Button onClick={exportMassivePDF} disabled={!filteredRecords.length}>
-                <FilePdf className="mr-2 h-4 w-4" />
-                {selectedIds.size > 0 ? `PDF Masivo (${selectedIds.size})` : "PDF Masivo (todos)"}
+              <Button size="sm" onClick={exportMassivePDF} disabled={!filteredRecords.length}>
+                <FilePdf className="mr-1 h-4 w-4" />
+                <span className="text-xs sm:text-sm">{selectedIds.size > 0 ? `PDF (${selectedIds.size})` : "PDF Masivo"}</span>
               </Button>
             </div>
           </CardContent>
