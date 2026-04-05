@@ -17,7 +17,7 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-72 p-0 bg-sidebar text-sidebar-foreground [&>button]:hidden">
+      <SheetContent side="left" className="w-72 p-0 bg-sidebar text-sidebar-foreground [&>button]:hidden flex flex-col h-full">
         {/* Logo Header */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           <div className="flex items-center gap-3">
