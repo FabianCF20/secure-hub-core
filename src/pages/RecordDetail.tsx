@@ -310,7 +310,7 @@ export default function RecordDetail() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {/* Main Info */}
         <Card className="lg:col-span-2">
           <CardHeader>
