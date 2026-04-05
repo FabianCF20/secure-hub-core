@@ -380,10 +380,10 @@ export default function Reports() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <CardTitle>{reportTypes.find((r) => r.id === selectedReport)?.name}</CardTitle>
-                <CardDescription>{reportTypes.find((r) => r.id === selectedReport)?.description}</CardDescription>
+                <CardTitle className="text-base sm:text-lg">{reportTypes.find((r) => r.id === selectedReport)?.name}</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">{reportTypes.find((r) => r.id === selectedReport)?.description}</CardDescription>
               </div>
               <Badge variant="outline">{filteredRecords.length} registros</Badge>
             </div>
