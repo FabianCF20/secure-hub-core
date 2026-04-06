@@ -61,39 +61,25 @@ export const firebaseUserService = {
   },
 
   async createUser(userData: Omit<User, "id"> & { password?: string }): Promise<User> {
-    await ensureFirebaseSession();
-
-    const { password, ...userFields } = userData;
-    if (!password) throw new Error("La contraseña es obligatoria para crear el usuario.");
-    if (!userFields.fullName.trim()) throw new Error("El nombre completo del usuario es obligatorio.");
-    if (!userFields.email.trim()) throw new Error("El correo electrónico del usuario es obligatorio.");
-
-    let authUid: string | null = null;
+    if (!userData.password) throw new Error("La contraseña es obligatoria para crear el usuario.");
+    if (!userData.fullName.trim()) throw new Error("El nombre completo del usuario es obligatorio.");
+    if (!userData.email.trim()) throw new Error("El correo electrónico del usuario es obligatorio.");
 
     try {
-      authUid = await firebaseAuthService.createAuthAccount(userData.email.trim(), password);
-      const newUser: User = {
-        ...userFields,
-        id: authUid,
-        fullName: userFields.fullName.trim(),
-        email: userFields.email.trim().toLowerCase(),
-        clientIds: userFields.clientIds ?? [],
-      };
-
-      const userDocRef = doc(db!, COLLECTIONS.USERS, authUid).withConverter(userConverter);
-      await setDoc(userDocRef, newUser);
-      console.log(`[Firebase] Usuario creado en Auth + Firestore con UID: ${authUid}`);
-      return newUser;
+      const { callFunction } = await import("@/lib/callable-functions");
+      const result = await callFunction<any, { success: boolean; user: User }>("createUser", {
+        fullName: userData.fullName,
+        email: userData.email,
+        password: userData.password,
+        role: userData.role,
+        clientIds: userData.clientIds ?? [],
+        isActive: userData.isActive,
+      });
+      console.log(`[Firebase] Usuario creado vía Cloud Function: ${result.user.id}`);
+      return result.user;
     } catch (error) {
       logError("firebaseUserService.createUser", error);
-      if (authUid) {
-        await firebaseAuthService.rollbackSecondaryAuthAccount();
-      }
-      throw createUserFriendlyError(error, "No se pudo crear el usuario en Firebase Auth y Firestore.");
-    } finally {
-      await firebaseAuthService.finalizeSecondaryAuthAccount().catch((error) => {
-        logError("firebaseUserService.createUser.finalizeSecondaryAuthAccount", error);
-      });
+      throw createUserFriendlyError(error, "No se pudo crear el usuario.");
     }
   },
 
