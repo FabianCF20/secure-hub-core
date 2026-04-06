@@ -19,7 +19,7 @@ import { userConverter } from "@/firebase/converters";
 import { createUserFriendlyError, logError } from "@/lib/firebase-error";
 import { ensureFirebaseSession } from "@/lib/firebase-session";
 import { User } from "@/models";
-import { firebaseAuthService } from "./firebaseAuthService";
+
 
 function getUsersRef() {
   return collection(db!, COLLECTIONS.USERS).withConverter(userConverter);
