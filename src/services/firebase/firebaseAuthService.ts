@@ -18,6 +18,7 @@ import { userConverter } from "@/firebase/converters";
 import { User } from "@/models";
 import { getErrorMessage, logError } from "@/lib/firebase-error";
 import { AuthCredentials, AuthResult } from "@/services/serviceAdapter";
+import { normalizeUserRole } from "@/lib/roles";
 
 const AUTH_STORAGE_KEY = "secureops_auth_user";
 
@@ -41,7 +42,19 @@ export const firebaseAuthService = {
       return null;
     }
 
-    const userProfile = userSnap.data();
+    const rawUserProfile = userSnap.data();
+    const normalizedRole = normalizeUserRole(rawUserProfile.role);
+
+    if (!normalizedRole) {
+      clearStoredUserProfile();
+      return null;
+    }
+
+    const userProfile: User = {
+      ...rawUserProfile,
+      role: normalizedRole,
+    };
+
     storeUserProfile(userProfile);
     return userProfile;
   },
