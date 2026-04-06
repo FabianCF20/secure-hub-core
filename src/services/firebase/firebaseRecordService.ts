@@ -2,7 +2,7 @@
 // FIREBASE RECORD SERVICE (with cache)
 // ==========================================
 import {
-  collection, doc, getDocs, getDoc, addDoc, updateDoc,
+  collection, doc, getDocs, getDoc, updateDoc,
   query, where, orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
