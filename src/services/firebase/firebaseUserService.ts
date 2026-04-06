@@ -85,14 +85,31 @@ export const firebaseUserService = {
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {
     try {
-      await ensureFirebaseSession();
-      const docRef = doc(db!, COLLECTIONS.USERS, userId);
-      await updateDoc(docRef, updates);
+      // Si se cambia el rol o clientIds, usar Cloud Function assignRole
+      if (updates.role || updates.clientIds) {
+        const { callFunction } = await import("@/lib/callable-functions");
+        await callFunction("assignRole", {
+          userId,
+          ...(updates.role ? { role: updates.role } : {}),
+          ...(updates.clientIds ? { clientIds: updates.clientIds } : {}),
+        });
+        // Remove role/clientIds from remaining updates
+        const { role, clientIds, ...restUpdates } = updates;
+        if (Object.keys(restUpdates).length > 0) {
+          await ensureFirebaseSession();
+          const docRef = doc(db!, COLLECTIONS.USERS, userId);
+          await updateDoc(docRef, restUpdates);
+        }
+      } else {
+        await ensureFirebaseSession();
+        const docRef = doc(db!, COLLECTIONS.USERS, userId);
+        await updateDoc(docRef, updates);
+      }
       const updated = await this.getUserById(userId);
       if (!updated) throw new Error(`No se encontró el usuario ${userId} después de actualizarlo.`);
       return updated;
     } catch (error) {
-      throw createUserFriendlyError(error, "No se pudo actualizar el usuario en Firestore.");
+      throw createUserFriendlyError(error, "No se pudo actualizar el usuario.");
     }
   },
 

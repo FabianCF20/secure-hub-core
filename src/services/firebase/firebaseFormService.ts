@@ -88,14 +88,19 @@ export const firebaseFormService = {
 
   async createForm(form: Omit<Form, "id" | "version">): Promise<Form> {
     try {
-      await ensureFirebaseSession();
       validateFormPayload(form);
-      const newForm = { ...form, name: form.name.trim(), version: 1 } as Form;
-      const docRef = await addDoc(getFormsRef(), newForm);
+      const { callFunction } = await import("@/lib/callable-functions");
+      const result = await callFunction<any, { success: boolean; form: Form }>("createForm", {
+        name: form.name,
+        clientId: form.clientId,
+        isActive: form.isActive,
+        fields: form.fields,
+      });
       invalidateCache("forms:");
-      return { ...newForm, id: docRef.id };
+      console.log(`[Firebase] Formulario creado vía Cloud Function: ${result.form.id}`);
+      return result.form;
     } catch (error) {
-      throw createUserFriendlyError(error, "No se pudo crear el formulario en Firestore.");
+      throw createUserFriendlyError(error, "No se pudo crear el formulario.");
     }
   },
 
