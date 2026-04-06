@@ -2,7 +2,7 @@
 // FIREBASE RECORD SERVICE (with cache)
 // ==========================================
 import {
-  collection, doc, getDocs, getDoc, addDoc, updateDoc,
+  collection, doc, getDocs, getDoc, updateDoc,
   query, where, orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
@@ -96,12 +96,20 @@ export const firebaseRecordService = {
 
   async createRecord(record: Omit<Record, "id">): Promise<Record> {
     try {
-      await ensureFirebaseSession();
-      const docRef = await addDoc(getRecordsRef(), record as Record);
+      const { callFunction } = await import("@/lib/callable-functions");
+      const result = await callFunction<any, { success: boolean; record: Record }>("createRecord", {
+        formId: record.formId,
+        clientId: record.clientId,
+        answers: record.answers,
+        evidence: record.evidence,
+        observations: record.observations,
+        location: record.location,
+      });
       invalidateCache("records:");
-      return { ...record, id: docRef.id } as Record;
+      console.log(`[Firebase] Registro creado vía Cloud Function: ${result.record.id}`);
+      return result.record;
     } catch (error) {
-      throw createUserFriendlyError(error, "No se pudo guardar el registro en Firestore.");
+      throw createUserFriendlyError(error, "No se pudo guardar el registro.");
     }
   },
 

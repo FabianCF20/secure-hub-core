@@ -1,16 +1,10 @@
 // ==========================================
-// FIRESTORE SECURITY RULES
+// FIRESTORE SECURITY RULES (HARDENED)
 // ==========================================
-// Roles: ADMIN, CENTRAL, SUPERVISOR, COORDINADOR, CLIENTE, GUARDA
-//
-// ADMIN: CRUD usuarios, clientes. Todo acceso.
-// CENTRAL: Crea formularios. Ve TODOS los formularios. Valida formularios de cualquier cliente.
-// SUPERVISOR: Diligencia formularios. No valida.
-// COORDINADOR: Ve y valida formularios de sus clientes asignados.
-// CLIENTE: Solo ve formularios/registros de su cuenta.
-// GUARDA: Diligencia formularios y escribe en minuta. No valida.
-//
-// Usuarios tienen clientIds[] (array). Puede estar vacío.
+// Escrituras críticas (createUser, createForm, createRecord, assignRole)
+// ahora pasan por Cloud Functions (Admin SDK bypasses rules).
+// Las reglas bloquean creates directos desde el frontend.
+// Lecturas se mantienen en el frontend con filtros por rol.
 // ==========================================
 
 rules_version = '2';
@@ -62,7 +56,6 @@ service cloud.firestore {
       return isAuthenticated() && getUserProfile().isActive == true;
     }
 
-    // Verifica si el usuario tiene el clientId en su array clientIds
     function hasClient(clientId) {
       return isAuthenticated() && clientId in getUserProfile().clientIds;
     }
@@ -78,38 +71,53 @@ service cloud.firestore {
         isCentral() ||
         hasClient(clientId)
       );
+      // Solo ADMIN puede crear/editar clientes directamente
       allow create, update: if isAdmin() && isActiveUser();
       allow delete: if false;
     }
 
     // --- USUARIOS ---
+    // CREATE bloqueado: se hace vía Cloud Function createUser (Admin SDK)
     match /users/{userId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
+        isCentral() ||
         request.auth.uid == userId
       );
-      allow create: if isAdmin() && isActiveUser();
+      // Create bloqueado desde frontend — Cloud Function lo maneja
+      allow create: if false;
+      // Update: solo campos no-críticos desde frontend (ADMIN o el propio usuario)
+      // Rol y clientIds se cambian vía Cloud Function assignRole
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
         request.auth.uid == userId
+      ) && (
+        // No permitir cambiar rol ni clientIds desde frontend
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clientIds'])
+        || isAdmin()
       );
       allow delete: if false;
     }
 
     // --- FORMULARIOS ---
+    // CREATE bloqueado: se hace vía Cloud Function createForm (Admin SDK)
     match /forms/{formId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
         isCentral() ||
         hasClient(resource.data.clientId)
       );
-      allow create, update: if isAuthenticated() && isActiveUser() && (
+      // Create bloqueado desde frontend
+      allow create: if false;
+      // Update permitido para ADMIN/CENTRAL (cambiar estado, versión, campos)
+      allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral()
       );
       allow delete: if false;
     }
 
     // --- REGISTROS ---
+    // CREATE bloqueado: se hace vía Cloud Function createRecord (Admin SDK)
     match /records/{recordId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
@@ -118,11 +126,9 @@ service cloud.firestore {
         (isCoordinador() && hasClient(resource.data.clientId)) ||
         (isCliente() && hasClient(resource.data.clientId))
       );
-      allow create: if isAuthenticated() && isActiveUser() && (
-        (isSupervisor() || isGuarda()) &&
-        request.resource.data.userId == request.auth.uid
-      );
-      // Validar (update status) — CENTRAL y COORDINADOR (de sus clientes)
+      // Create bloqueado desde frontend
+      allow create: if false;
+      // Update (validar status): ADMIN, CENTRAL, COORDINADOR (de sus clientes)
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() ||
         isCentral() ||
@@ -143,7 +149,6 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
       ) && request.resource.data.userId == request.auth.uid;
-      // Solo permitir cerrar consignas (update isClosed)
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isCoordinador()
       ) && resource.data.type == 'consigna_general'
@@ -153,11 +158,12 @@ service cloud.firestore {
     }
 
     // --- LOGS DE AUDITORÍA ---
+    // Create bloqueado desde frontend: Cloud Functions escriben auditoría
     match /auditLogs/{logId} {
       allow read: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral()
       );
-      allow create: if isAuthenticated() && isActiveUser();
+      allow create: if false;
       allow update, delete: if false;
     }
 
