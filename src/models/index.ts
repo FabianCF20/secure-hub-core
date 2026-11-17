@@ -4,7 +4,7 @@
 // ==========================================
 
 // Tipos de roles del sistema
-export type UserRole = "ADMIN" | "CENTRAL" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
+export type UserRole = "ADMIN" | "CENTRAL" | "ANALISTA" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
 
 // Estados de registros
 export type RecordStatus = "PENDING" | "SENT" | "REVIEW_COORD" | "REVIEW_ADMIN" | "APPROVED" | "REJECTED";
