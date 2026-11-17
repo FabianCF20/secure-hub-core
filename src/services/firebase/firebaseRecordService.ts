@@ -115,17 +115,14 @@ export const firebaseRecordService = {
 
   async updateRecordStatus(recordId: string, status: RecordStatus, observations?: string): Promise<Record> {
     try {
-      await ensureFirebaseSession();
-      const docRef = doc(db!, COLLECTIONS.RECORDS, recordId);
-      const updates: Partial<Record> = { status };
-      if (observations !== undefined) updates.observations = observations;
-      await updateDoc(docRef, updates);
+      const { callFunction } = await import("@/lib/callable-functions");
+      await callFunction("updateRecordStatus", { recordId, status, observations });
       invalidateCache("records:");
       const updated = await this.getRecordById(recordId);
       if (!updated) throw new Error(`No se encontró el registro ${recordId} después de actualizarlo.`);
       return updated;
     } catch (error) {
-      throw createUserFriendlyError(error, "No se pudo actualizar el estado del registro en Firestore.");
+      throw createUserFriendlyError(error, "No se pudo actualizar el estado del registro.");
     }
   },
 
