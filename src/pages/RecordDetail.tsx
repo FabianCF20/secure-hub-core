@@ -32,6 +32,7 @@ const statusConfig: { [key in RecordStatus]: { label: string; className: string 
 
 const auditActionLabels: Record<string, string> = {
   created: "Registro creado",
+  record_created: "Registro creado",
   status_changed: "Estado actualizado",
   approved: "Aprobado",
   rejected: "Rechazado",
@@ -132,24 +133,7 @@ export default function RecordDetail() {
   async function confirmAction() {
     if (!pendingAction || !record || !authUser) return;
     try {
-      const previousStatus = record.status;
       await recordService.updateRecordStatus(record.id, pendingAction, observations);
-
-      // Registrar en auditoría
-      const auditAction = pendingAction === "REJECTED" ? "rejected" 
-        : pendingAction === "APPROVED" ? "approved" 
-        : "status_changed";
-
-      await firebaseAuditService.addLog({
-        recordId: record.id,
-        action: auditAction,
-        userId: authUser.id,
-        userName: authUser.fullName,
-        previousStatus,
-        newStatus: pendingAction,
-        observations,
-        timestamp: new Date().toISOString(),
-      });
 
       toast.success(`Registro ${statusConfig[pendingAction].label}`);
       setObservationDialogOpen(false);
