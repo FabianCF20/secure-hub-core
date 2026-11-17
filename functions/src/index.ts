@@ -60,17 +60,6 @@ function sanitizeString(val: unknown, fieldName: string, maxLen = 255): string {
   return val.trim().slice(0, maxLen);
 }
 
-/** Registra una acción de auditoría */
-async function logAudit(action: string, userId: string, userName: string, details: Record<string, unknown>) {
-  await db.collection(COLLECTIONS.AUDIT_LOGS).add({
-    action,
-    userId,
-    userName,
-    ...details,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
-}
-
 // ==========================================
 // 1. CREATE USER (Solo ADMIN)
 // ==========================================
@@ -135,19 +124,26 @@ export const createUser = functions.https.onCall(async (data, context) => {
     isActive: data.isActive !== false,
   };
 
+  const profileRef = db.collection(COLLECTIONS.USERS).doc(userRecord.uid);
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
   try {
-    await db.collection(COLLECTIONS.USERS).doc(userRecord.uid).set(userProfile);
+    await db.runTransaction(async (tx) => {
+      tx.create(profileRef, userProfile);
+      tx.create(auditRef, {
+        action: "user_created",
+        userId: context.auth!.uid,
+        userName: caller.fullName,
+        targetUserId: userRecord.uid,
+        targetEmail: email,
+        targetRole: role,
+        timestamp: new Date().toISOString(),
+      });
+    });
   } catch (error) {
-    // Rollback: delete Auth account if Firestore fails
+    // Rollback: delete Auth account if Firestore profile/audit fails.
     await admin.auth().deleteUser(userRecord.uid).catch(() => {});
-    throw new functions.https.HttpsError("internal", "Error al guardar perfil del usuario.");
+    throw new functions.https.HttpsError("internal", "No se pudo guardar el perfil y la auditoría del usuario.");
   }
-
-  await logAudit("user_created", context.auth.uid, caller.fullName, {
-    targetUserId: userRecord.uid,
-    targetEmail: email,
-    targetRole: role,
-  });
 
   return { success: true, user: userProfile };
 });
@@ -171,13 +167,11 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", `Rol inválido: ${data.role}`);
   }
 
-  // Verify target user exists
-  const targetSnap = await db.collection(COLLECTIONS.USERS).doc(targetUserId).get();
+  const targetRef = db.collection(COLLECTIONS.USERS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
   if (!targetSnap.exists) {
     throw new functions.https.HttpsError("not-found", "El usuario objetivo no existe.");
   }
-
-  const previousRole = targetSnap.data()?.role;
 
   // Update
   const updates: Record<string, unknown> = { role: newRole };
@@ -194,12 +188,22 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     updates.clientIds = clientIds;
   }
 
-  await db.collection(COLLECTIONS.USERS).doc(targetUserId).update(updates);
-
-  await logAudit("role_assigned", context.auth.uid, caller.fullName, {
-    targetUserId,
-    previousRole,
-    newRole,
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  await db.runTransaction(async (tx) => {
+    const currentTarget = await tx.get(targetRef);
+    if (!currentTarget.exists) {
+      throw new functions.https.HttpsError("not-found", "El usuario objetivo ya no existe.");
+    }
+    tx.update(targetRef, updates);
+    tx.create(auditRef, {
+      action: "role_assigned",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      targetUserId,
+      previousRole: currentTarget.data()?.role ?? null,
+      newRole,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   return { success: true };
@@ -243,18 +247,27 @@ export const deleteUser = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    await targetRef.delete();
+    const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+    await db.runTransaction(async (tx) => {
+      const currentTarget = await tx.get(targetRef);
+      if (!currentTarget.exists) {
+        throw new functions.https.HttpsError("not-found", "El perfil del usuario ya no existe.");
+      }
+      tx.delete(targetRef);
+      tx.create(auditRef, {
+        action: "user_deleted",
+        userId: context.auth!.uid,
+        userName: caller.fullName,
+        targetUserId,
+        targetEmail: target?.email ?? null,
+        targetRole: target?.role ?? null,
+        timestamp: new Date().toISOString(),
+      });
+    });
   } catch (error) {
-    // La cuenta Auth ya fue eliminada. El perfil se conserva para permitir
-    // recuperación administrativa; no se oculta el fallo al cliente.
-    throw new functions.https.HttpsError("internal", "La cuenta de acceso fue eliminada, pero no se pudo borrar el perfil. Contacta al administrador.");
+    // La cuenta Auth ya fue eliminada. El perfil se conserva si la transacción falla.
+    throw new functions.https.HttpsError("internal", "La cuenta de acceso fue eliminada, pero no se pudo completar el borrado y la auditoría del perfil.");
   }
-
-  await logAudit("user_deleted", context.auth.uid, caller.fullName, {
-    targetUserId,
-    targetEmail: target?.email ?? null,
-    targetRole: target?.role ?? null,
-  });
 
   return { success: true };
 });
@@ -318,12 +331,19 @@ export const createForm = functions.https.onCall(async (data, context) => {
     fields: sanitizedFields,
   };
 
-  const docRef = await db.collection(COLLECTIONS.FORMS).add(formDoc);
-
-  await logAudit("form_created", context.auth.uid, caller.fullName, {
-    formId: docRef.id,
-    formName: name,
-    clientId,
+  const docRef = db.collection(COLLECTIONS.FORMS).doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  await db.runTransaction(async (tx) => {
+    tx.create(docRef, formDoc);
+    tx.create(auditRef, {
+      action: "form_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      formId: docRef.id,
+      formName: name,
+      clientId,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   return { success: true, form: { ...formDoc, id: docRef.id } };
@@ -516,6 +536,8 @@ export const createIntelligenceReport = functions.https.onCall(async (data, cont
 
   const reportRef = db.collection("intelligenceReports").doc();
   const caseRef = db.collection("intelligenceCases").doc();
+  const timelineRef = db.collection("intelligenceTimeline").doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
   const now = admin.firestore.FieldValue.serverTimestamp();
 
   const caseNumber = await db.runTransaction(async (tx) => {
@@ -558,7 +580,7 @@ export const createIntelligenceReport = functions.https.onCall(async (data, cont
     };
     tx.create(reportRef, report);
     tx.create(caseRef, intelligenceCase);
-    tx.create(db.collection("intelligenceTimeline").doc(), {
+    tx.create(timelineRef, {
       caseId: caseRef.id,
       action: "CASE_CREATED",
       actorId: context.auth!.uid,
@@ -566,14 +588,17 @@ export const createIntelligenceReport = functions.https.onCall(async (data, cont
       createdAt: now,
       note: "Expediente abierto automáticamente desde un reporte operativo.",
     });
+    tx.create(auditRef, {
+      action: "intelligence_report_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      caseId: caseRef.id,
+      caseNumber: generatedNumber,
+      reportId: reportRef.id,
+      clientId,
+      timestamp: now,
+    });
     return generatedNumber;
-  });
-
-  await logAudit("intelligence_report_created", context.auth.uid, caller.fullName, {
-    caseId: caseRef.id,
-    caseNumber,
-    reportId: reportRef.id,
-    clientId,
   });
 
   return { success: true, caseId: caseRef.id, reportId: reportRef.id, caseNumber };
