@@ -66,7 +66,14 @@ export const firebaseUserService = {
 
     try {
       const { callFunction } = await import("@/lib/callable-functions");
-      const result = await callFunction<any, { success: boolean; user: User }>("createUser", {
+      const result = await callFunction<{
+        fullName: string;
+        email: string;
+        password: string;
+        role: User["role"];
+        clientIds: string[];
+        isActive: boolean;
+      }, { success: boolean; user: User }>("createUser", {
         fullName: userData.fullName,
         email: userData.email,
         password: userData.password,
