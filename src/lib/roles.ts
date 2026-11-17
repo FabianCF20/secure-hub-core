@@ -1,6 +1,6 @@
 import { UserRole } from "@/models";
 
-const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
+const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "ANALISTA", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
 
 const LEGACY_ROLE_MAP: Record<string, UserRole> = {
   OPERATIVO: "GUARDA",
