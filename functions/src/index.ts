@@ -461,7 +461,7 @@ export const updateRecordStatus = functions.https.onCall(async (data, context) =
 
     tx.update(recordRef, updates);
     tx.create(auditRef, {
-      action: "record_status_changed",
+      action: nextStatus === "APPROVED" ? "approved" : nextStatus === "REJECTED" ? "rejected" : "status_changed",
       userId: context.auth!.uid,
       userName: caller.fullName,
       recordId,
