@@ -148,9 +148,16 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
-      ) && request.resource.data.userId == request.auth.uid
+      ) && request.resource.data.keys().hasAll(['clientId', 'userId', 'userName', 'userRole', 'type', 'content', 'createdAt', 'isClosed'])
+        && request.resource.data.keys().hasOnly(['clientId', 'userId', 'userName', 'userRole', 'type', 'content', 'createdAt', 'isClosed', 'location'])
+        && request.resource.data.clientId is string
+        && request.resource.data.userId == request.auth.uid
         && request.resource.data.userRole == getUserProfile().role
         && request.resource.data.userName == getUserProfile().fullName
+        && request.resource.data.type in ['novedad', 'observacion', 'incidente', 'reporte', 'consigna_general']
+        && request.resource.data.content is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.isClosed == false
         && (isAdmin() || isCentral() || hasClient(request.resource.data.clientId))
         && (request.resource.data.type != 'consigna_general' || isAdmin() || isCentral() || isCoordinador());
       allow update: if isAuthenticated() && isActiveUser() && (
@@ -160,6 +167,7 @@ service cloud.firestore {
         && resource.data.isClosed == false
         && request.resource.data.closedBy == request.auth.uid
         && request.resource.data.closedByName == getUserProfile().fullName
+        && request.resource.data.closedAt is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isClosed', 'closedBy', 'closedByName', 'closedAt']);
       allow delete: if false;
     }
