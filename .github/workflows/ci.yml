@@ -23,6 +23,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Validate Firestore rules with emulator
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-ainca "echo Firestore rules loaded"
       - name: Lint (existing codebase baseline)
         run: npm run lint
         continue-on-error: true
