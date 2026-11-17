@@ -63,6 +63,12 @@ export const navItems: NavItem[] = [
     allowedRoles: ["ADMIN", "CENTRAL", "COORDINADOR"],
   },
   {
+    to: "/intelligence",
+    icon: ShieldCheck,
+    label: "Inteligencia",
+    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"],
+  },
+  {
     to: "/settings",
     icon: Settings,
     label: "Configuración",
