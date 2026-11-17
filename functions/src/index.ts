@@ -87,10 +87,10 @@ export const createUser = functions.https.onCall(async (data, context) => {
   // Validate input
   const fullName = sanitizeString(data.fullName, "fullName", 100);
   const email = sanitizeString(data.email, "email", 255).toLowerCase();
-  const password = sanitizeString(data.password, "password", 128);
-
-  if (password.length < 6) {
-    throw new functions.https.HttpsError("invalid-argument", "La contraseña debe tener al menos 6 caracteres.");
+  // Las contraseñas se validan sin recortar espacios: pueden formar parte de la clave.
+  const password = typeof data.password === "string" ? data.password : "";
+  if (password.length < 6 || password.length > 128) {
+    throw new functions.https.HttpsError("invalid-argument", "La contraseña debe tener entre 6 y 128 caracteres.");
   }
 
   const role = data.role as UserRole;
@@ -200,6 +200,57 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     targetUserId,
     previousRole,
     newRole,
+  });
+
+  return { success: true };
+});
+
+// ==========================================
+ // 2B. DELETE USER (Solo ADMIN)
+ // Elimina la cuenta de Authentication y su perfil.
+ // Se conserva la trazabilidad histórica en los registros existentes.
+ // ==========================================
+export const deleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN"]);
+
+  const targetUserId = sanitizeString(data.userId, "userId", 128);
+  if (targetUserId === context.auth.uid) {
+    throw new functions.https.HttpsError("failed-precondition", "No puedes eliminar tu propia cuenta.");
+  }
+
+  const targetRef = db.collection(COLLECTIONS.USERS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
+  if (!targetSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "El perfil del usuario no existe.");
+  }
+
+  const target = targetSnap.data();
+  try {
+    await admin.auth().deleteUser(targetUserId);
+  } catch (error: any) {
+    if (error.code !== "auth/user-not-found") {
+      throw new functions.https.HttpsError("internal", "No se pudo eliminar la cuenta de autenticación. El perfil se conservó.");
+    }
+  }
+
+  try {
+    await targetRef.delete();
+  } catch (error) {
+    // La cuenta Auth ya fue eliminada. El perfil se conserva para permitir
+    // recuperación administrativa; no se oculta el fallo al cliente.
+    throw new functions.https.HttpsError("internal", "La cuenta de acceso fue eliminada, pero no se pudo borrar el perfil. Contacta al administrador.");
+  }
+
+  await logAudit("user_deleted", context.auth.uid, caller.fullName, {
+    targetUserId,
+    targetEmail: target?.email ?? null,
+    targetRole: target?.role ?? null,
   });
 
   return { success: true };
