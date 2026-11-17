@@ -397,15 +397,23 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     } : {}),
   };
 
-  const docRef = await db.collection(COLLECTIONS.RECORDS).add(recordDoc);
+  const docRef = db.collection(COLLECTIONS.RECORDS).doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-  // La auditoría se registra desde servidor porque las reglas bloquean
-  // escrituras directas del cliente en auditLogs.
-  await logAudit("record_created", context.auth.uid, caller.fullName, {
-    recordId: docRef.id,
-    formId,
-    clientId,
-    status: recordDoc.status,
+  // Registro y auditoría se guardan en una sola transacción.
+  await db.runTransaction(async (tx) => {
+    tx.create(docRef, recordDoc);
+    tx.create(auditRef, {
+      action: "record_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      recordId: docRef.id,
+      formId,
+      clientId,
+      status: recordDoc.status,
+      timestamp,
+    });
   });
 
   return { success: true, record: { ...recordDoc, id: docRef.id } };
@@ -433,29 +441,36 @@ export const updateRecordStatus = functions.https.onCall(async (data, context) =
   }
 
   const recordRef = db.collection(COLLECTIONS.RECORDS).doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    throw new functions.https.HttpsError("not-found", "El registro no existe.");
-  }
-
-  const record = recordSnap.data()!;
-  if (caller.role === "COORDINADOR" && !(caller.clientIds || []).includes(record.clientId)) {
-    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este registro.");
-  }
-
-  const previousStatus = record.status;
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
   const updates: Record<string, unknown> = { status: nextStatus };
   if (typeof data.observations === "string") {
     updates.observations = data.observations.trim().slice(0, 2000);
   }
 
-  await recordRef.update(updates);
-  await logAudit("record_status_changed", context.auth.uid, caller.fullName, {
-    recordId,
-    clientId: record.clientId,
-    previousStatus,
-    newStatus: nextStatus,
-    observations: updates.observations ?? record.observations ?? "",
+  // El estado y su evento de auditoría no pueden quedar desincronizados.
+  await db.runTransaction(async (tx) => {
+    const recordSnap = await tx.get(recordRef);
+    if (!recordSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "El registro no existe.");
+    }
+
+    const record = recordSnap.data()!;
+    if (caller.role === "COORDINADOR" && !(caller.clientIds || []).includes(record.clientId)) {
+      throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este registro.");
+    }
+
+    tx.update(recordRef, updates);
+    tx.create(auditRef, {
+      action: "record_status_changed",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      recordId,
+      clientId: record.clientId,
+      previousStatus: record.status,
+      newStatus: nextStatus,
+      observations: updates.observations ?? record.observations ?? "",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
   });
 
   return { success: true };
