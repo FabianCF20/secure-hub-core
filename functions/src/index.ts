@@ -530,6 +530,21 @@ export const updateRecordStatus = functions.https.onCall(async (data, context) =
       throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este registro.");
     }
 
+    const currentStatus = record.status as string;
+    const isCoordinatorTransition = caller.role === "COORDINADOR"
+      && currentStatus === "SENT"
+      && (nextStatus === "REVIEW_COORD" || nextStatus === "REJECTED");
+    const isCentralOrAdminTransition = (caller.role === "ADMIN" || caller.role === "CENTRAL")
+      && ["PENDING", "SENT", "REVIEW_COORD"].includes(currentStatus)
+      && (nextStatus === "APPROVED" || nextStatus === "REJECTED");
+    const isAdminFinalTransition = caller.role === "ADMIN"
+      && currentStatus === "REVIEW_ADMIN"
+      && (nextStatus === "APPROVED" || nextStatus === "REJECTED");
+
+    if (!isCoordinatorTransition && !isCentralOrAdminTransition && !isAdminFinalTransition) {
+      throw new functions.https.HttpsError("failed-precondition", "La transición de estado no está permitida para tu rol o el estado actual.");
+    }
+
     tx.update(recordRef, updates);
     tx.create(auditRef, {
       action: nextStatus === "APPROVED" ? "approved" : nextStatus === "REJECTED" ? "rejected" : "status_changed",
