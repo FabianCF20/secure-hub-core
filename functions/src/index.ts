@@ -399,6 +399,15 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
   const docRef = await db.collection(COLLECTIONS.RECORDS).add(recordDoc);
 
+  // La auditoría se registra desde servidor porque las reglas bloquean
+  // escrituras directas del cliente en auditLogs.
+  await logAudit("record_created", context.auth.uid, caller.fullName, {
+    recordId: docRef.id,
+    formId,
+    clientId,
+    status: recordDoc.status,
+  });
+
   return { success: true, record: { ...recordDoc, id: docRef.id } };
 });
 
