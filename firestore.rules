@@ -132,11 +132,8 @@ service cloud.firestore {
       // Create bloqueado desde frontend
       allow create: if false;
       // Update (validar status): ADMIN, CENTRAL, COORDINADOR (de sus clientes)
-      allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() ||
-        isCentral() ||
-        (isCoordinador() && hasClient(resource.data.clientId))
-      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'observations']);
+      // Las actualizaciones de estado pasan por Cloud Function para auditoría.
+      allow update: if false;
       allow delete: if false;
     }
 
