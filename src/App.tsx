@@ -17,7 +17,7 @@ import Records from "./pages/Records";
 import RecordDetail from "./pages/RecordDetail";
 import Reports from "./pages/Reports";
 import Minuta from "./pages/Minuta";
-import Settings from "./pages/Settings";
+import Settings from "./pages/Settings";\nimport Intelligence from "./pages/Intelligence";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -91,7 +91,7 @@ const App = () => (
                     <Reports />
                   </ProtectedRoute>
                 } />
-                <Route path="/settings" element={
+                <Route path="/intelligence" element={\n                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"]}>\n                    <Intelligence />\n                  </ProtectedRoute>\n                } />\n                <Route path="/settings" element={
                   <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <Settings />
                   </ProtectedRoute>
