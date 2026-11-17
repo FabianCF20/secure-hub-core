@@ -368,6 +368,11 @@ export const createIntelligenceReport = functions.https.onCall(async (data, cont
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente seleccionado.");
   }
 
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente no existe o está inactivo.");
+  }
+
   const observedAt = typeof data.observedAt === "string" ? data.observedAt.slice(0, 40) : new Date().toISOString();
   if (Number.isNaN(Date.parse(observedAt))) {
     throw new functions.https.HttpsError("invalid-argument", "La fecha del evento no es válida.");
