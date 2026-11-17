@@ -152,7 +152,10 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
       ) && request.resource.data.userId == request.auth.uid
-        && (isAdmin() || isCentral() || hasClient(request.resource.data.clientId));
+        && request.resource.data.userRole == getUserProfile().role
+        && request.resource.data.userName == getUserProfile().fullName
+        && (isAdmin() || isCentral() || hasClient(request.resource.data.clientId))
+        && (request.resource.data.type != 'consigna_general' || isAdmin() || isCentral() || isCoordinador());
       allow update: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || (isCoordinador() && hasClient(resource.data.clientId))
       ) && resource.data.type == 'consigna_general'
