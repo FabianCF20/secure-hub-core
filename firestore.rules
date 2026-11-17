@@ -36,6 +36,14 @@ service cloud.firestore {
       return isAuthenticated() && userRole() == 'CENTRAL';
     }
 
+    function isAnalyst() {
+      return isAuthenticated() && userRole() == 'ANALISTA';
+    }
+
+    function canReviewIntelligence() {
+      return isAuthenticated() && isActiveUser() && (isAdmin() || isCentral() || isAnalyst());
+    }
+
     function isSupervisor() {
       return isAuthenticated() && userRole() == 'SUPERVISOR';
     }
@@ -176,30 +184,30 @@ service cloud.firestore {
     // --- INTELIGENCIA: lectura restringida a ADMIN/CENTRAL ---
     // Las escrituras se realizan exclusivamente mediante Cloud Functions.
     match /intelligenceCases/{caseId} {
-      allow read: if isAuthenticated() && isActiveUser() && (isAdmin() || isCentral());
+      allow read: if isAuthenticated() && isActiveUser() && canReviewIntelligence();
       allow create, update, delete: if false;
     }
 
     match /intelligenceReports/{reportId} {
       allow read: if isAuthenticated() && isActiveUser() && (
-        isAdmin() || isCentral() ||
+        isAdmin() || isCentral() || isAnalyst() ||
         ((isSupervisor() || isCoordinador() || isGuarda()) && resource.data.createdBy == request.auth.uid)
       );
       allow create, update, delete: if false;
     }
 
     match /intelligenceTimeline/{entryId} {
-      allow read: if isAuthenticated() && isActiveUser() && (isAdmin() || isCentral());
+      allow read: if canReviewIntelligence();
       allow create, update, delete: if false;
     }
 
     match /intelligenceMatches/{matchId} {
-      allow read: if isAuthenticated() && isActiveUser() && (isAdmin() || isCentral());
+      allow read: if canReviewIntelligence();
       allow create, update, delete: if false;
     }
 
     match /intelligenceVerifications/{verificationId} {
-      allow read: if isAuthenticated() && isActiveUser() && (isAdmin() || isCentral());
+      allow read: if canReviewIntelligence();
       allow create, update, delete: if false;
     }
 
