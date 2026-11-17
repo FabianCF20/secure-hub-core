@@ -383,7 +383,7 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     clientId,
     userId: context.auth.uid, // Forzado al caller, no al dato enviado
     createdAt: new Date().toISOString(),
-    status: "PENDING",
+    status: "SENT",
     answers,
     evidence,
     observations: typeof data.observations === "string" ? data.observations.slice(0, 2000) : "",
@@ -399,7 +399,7 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
   const docRef = db.collection(COLLECTIONS.RECORDS).doc();
   const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
-  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+  const timestamp = new Date().toISOString();
 
   // Registro y auditoría se guardan en una sola transacción.
   await db.runTransaction(async (tx) => {
@@ -469,7 +469,7 @@ export const updateRecordStatus = functions.https.onCall(async (data, context) =
       previousStatus: record.status,
       newStatus: nextStatus,
       observations: updates.observations ?? record.observations ?? "",
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: new Date().toISOString(),
     });
   });
 
