@@ -176,3 +176,45 @@ export interface DashboardStats {
   recordsToday: number;
   pendingApproval: number;
 }
+
+ 
+// ==========================================
+// INTELIGENCIA - Reportes observacionales
+// ==========================================
+export type IntelligenceCaseStatus =
+  | "PENDING" | "ASSIGNED" | "UNDER_REVIEW" | "NEEDS_INFORMATION"
+  | "VERIFIED" | "UNCONFIRMED" | "DISCARDED" | "CLOSED";
+
+export type IntelligenceVerificationStatus =
+  | "REPORTED" | "IN_REVIEW" | "VERIFIED" | "UNCONFIRMED" | "DISCARDED";
+
+export interface IntelligenceReportInput {
+  clientId: string;
+  observedAt: string;
+  description: string;
+  behavior?: string;
+  clothing?: string;
+  physicalDescription?: string;
+  site?: string;
+  post?: string;
+  sourceType: "direct_observation" | "third_party_report";
+}
+
+export interface IntelligenceReport {
+  id: string;
+  caseId: string;
+  clientId: string;
+  createdBy: string;
+  createdByName: string;
+  creatorRole: UserRole;
+  observedAt: string;
+  description: string;
+  behavior: string;
+  clothing: string;
+  physicalDescription: string;
+  site: string;
+  post: string;
+  sourceType: "direct_observation" | "third_party_report";
+  verificationStatus: IntelligenceVerificationStatus;
+  status: IntelligenceCaseStatus;
+}
