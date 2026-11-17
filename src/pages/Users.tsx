@@ -388,6 +388,7 @@ export default function Users() {
             <SelectContent>
               <SelectItem value="ADMIN">Administrador</SelectItem>
               <SelectItem value="CENTRAL">Central</SelectItem>
+              <SelectItem value="ANALISTA">Analista de Inteligencia</SelectItem>
               <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
               <SelectItem value="COORDINADOR">Coordinador</SelectItem>
               <SelectItem value="CLIENTE">Cliente</SelectItem>
