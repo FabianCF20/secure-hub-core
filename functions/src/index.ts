@@ -109,8 +109,8 @@ export const createUser = functions.https.onCall(async (data, context) => {
   // Validate clientIds exist
   for (const cid of clientIds) {
     const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(cid).get();
-    if (!clientSnap.exists) {
-      throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe.`);
+    if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+      throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe o está inactivo.`);
     }
   }
 
@@ -317,8 +317,8 @@ export const createForm = functions.https.onCall(async (data, context) => {
 
   // Verify client exists
   const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
-  if (!clientSnap.exists) {
-    throw new functions.https.HttpsError("invalid-argument", "El cliente seleccionado no existe.");
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente seleccionado no existe o está inactivo.");
   }
 
   // Validate fields
@@ -418,6 +418,15 @@ export const createRecord = functions.https.onCall(async (data, context) => {
   }
 
   const formData = formSnap.data();
+  if (formData?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El formulario está desactivado.");
+  }
+
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente no existe o está inactivo.");
+  }
+
   if (formData?.clientId !== clientId) {
     throw new functions.https.HttpsError("invalid-argument", "El formulario no pertenece al cliente indicado.");
   }
