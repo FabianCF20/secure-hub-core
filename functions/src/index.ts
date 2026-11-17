@@ -107,8 +107,11 @@ export const createUser = functions.https.onCall(async (data, context) => {
       password,
       displayName: fullName,
     });
-  } catch (error: any) {
-    if (error.code === "auth/email-already-exists") {
+  } catch (error: unknown) {
+    const authErrorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (authErrorCode === "auth/email-already-exists") {
       throw new functions.https.HttpsError("already-exists", "Ya existe un usuario con ese correo electrónico.");
     }
     throw new functions.https.HttpsError("internal", "Error al crear cuenta de autenticación.");
@@ -299,25 +302,44 @@ export const createForm = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "El formulario debe tener al menos un campo.");
   }
 
+  type FormFieldInput = {
+    id?: unknown;
+    label?: unknown;
+    type?: unknown;
+    required?: unknown;
+    options?: unknown;
+    helperText?: unknown;
+    validations?: unknown;
+  };
   const validFieldTypes = ["text", "number", "select", "checkbox", "photo", "signature", "qr"];
-  const sanitizedFields = data.fields.map((field: any, idx: number) => {
+  const sanitizedFields = data.fields.map((rawField: unknown, idx: number) => {
+    const field = typeof rawField === "object" && rawField !== null
+      ? rawField as FormFieldInput
+      : {};
     const label = sanitizeString(field.label, `fields[${idx}].label`, 200);
     const type = field.type;
-    if (!validFieldTypes.includes(type)) {
-      throw new functions.https.HttpsError("invalid-argument", `Tipo de campo inválido: ${type}`);
+    if (typeof type !== "string" || !validFieldTypes.includes(type)) {
+      throw new functions.https.HttpsError("invalid-argument", `Tipo de campo inválido: ${String(type)}`);
     }
+    const validations = typeof field.validations === "object" && field.validations !== null
+      ? field.validations as Record<string, unknown>
+      : undefined;
     return {
-      id: field.id || `field_${Date.now()}_${idx}`,
+      id: typeof field.id === "string" && field.id.trim()
+        ? field.id.trim().slice(0, 100)
+        : `field_${Date.now()}_${idx}`,
       type,
       label,
       required: field.required === true,
-      options: Array.isArray(field.options) ? field.options.filter((o: unknown) => typeof o === "string").slice(0, 50) : [],
+      options: Array.isArray(field.options)
+        ? field.options.filter((option: unknown): option is string => typeof option === "string").slice(0, 50)
+        : [],
       helperText: typeof field.helperText === "string" ? field.helperText.slice(0, 500) : "",
-      ...(field.validations && typeof field.validations === "object" ? {
+      ...(validations ? {
         validations: {
-          ...(typeof field.validations.min === "number" ? { min: field.validations.min } : {}),
-          ...(typeof field.validations.max === "number" ? { max: field.validations.max } : {}),
-          ...(typeof field.validations.pattern === "string" ? { pattern: field.validations.pattern.slice(0, 200) } : {}),
+          ...(typeof validations.min === "number" ? { min: validations.min } : {}),
+          ...(typeof validations.max === "number" ? { max: validations.max } : {}),
+          ...(typeof validations.pattern === "string" ? { pattern: validations.pattern.slice(0, 200) } : {}),
         },
       } : {}),
     };
@@ -383,10 +405,15 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
   // Sanitize answers
   const answers = Array.isArray(data.answers)
-    ? data.answers.map((a: any) => ({
-        fieldId: typeof a.fieldId === "string" ? a.fieldId.slice(0, 100) : "",
-        value: typeof a.value === "string" ? a.value.slice(0, 5000) : "",
-      }))
+    ? data.answers.map((rawAnswer: unknown) => {
+        const answer = typeof rawAnswer === "object" && rawAnswer !== null
+          ? rawAnswer as Record<string, unknown>
+          : {};
+        return {
+          fieldId: typeof answer.fieldId === "string" ? answer.fieldId.slice(0, 100) : "",
+          value: typeof answer.value === "string" ? answer.value.slice(0, 5000) : "",
+        };
+      })
     : [];
 
   // Sanitize evidence
