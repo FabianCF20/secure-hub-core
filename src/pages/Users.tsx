@@ -238,7 +238,6 @@ export default function Users() {
                   <SelectItem value="all">Todos los roles</SelectItem>
                   <SelectItem value="ADMIN">Administrador</SelectItem>
                   <SelectItem value="CENTRAL">Central</SelectItem>
-              <SelectItem value="ANALISTA">Analista de Inteligencia</SelectItem>
                   <SelectItem value="ANALISTA">Analista de Inteligencia</SelectItem>
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
                   <SelectItem value="COORDINADOR">Coordinador</SelectItem>
