@@ -233,8 +233,11 @@ export const deleteUser = functions.https.onCall(async (data, context) => {
   const target = targetSnap.data();
   try {
     await admin.auth().deleteUser(targetUserId);
-  } catch (error: any) {
-    if (error.code !== "auth/user-not-found") {
+  } catch (error: unknown) {
+    const authErrorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (authErrorCode !== "auth/user-not-found") {
       throw new functions.https.HttpsError("internal", "No se pudo eliminar la cuenta de autenticación. El perfil se conservó.");
     }
   }
