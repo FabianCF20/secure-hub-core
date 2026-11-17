@@ -73,7 +73,7 @@ export default function Intelligence() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={canReview ? "Inteligencia y seguimiento" : "Reportar observación"} description={canReview ? "Bandeja de expedientes para revisión y verificación autorizada." : "Registra hechos observados. SecureHub abrirá automáticamente un expediente para revisión central."} />
-      {!isCentral && <Card>
+      {!canReview && <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><PlusCircle className="h-5 w-5" />Nuevo reporte de observación</CardTitle><CardDescription>Registra hechos concretos y su contexto. No incluyas conclusiones sobre culpabilidad ni datos sensibles innecesarios.</CardDescription></CardHeader>
         <CardContent><form onSubmit={submitReport} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
