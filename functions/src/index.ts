@@ -436,18 +436,40 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este formulario.");
   }
 
-  // Sanitize answers
-  const answers = Array.isArray(data.answers)
-    ? data.answers.map((rawAnswer: unknown) => {
-        const answer = typeof rawAnswer === "object" && rawAnswer !== null
-          ? rawAnswer as Record<string, unknown>
-          : {};
-        return {
-          fieldId: typeof answer.fieldId === "string" ? answer.fieldId.slice(0, 100) : "",
-          value: typeof answer.value === "string" ? answer.value.slice(0, 5000) : "",
-        };
-      })
+  // Validate answers against the active form definition.
+  const formFields = Array.isArray(formData?.fields)
+    ? formData.fields.filter((field: unknown): field is Record<string, unknown> =>
+        typeof field === "object" && field !== null)
     : [];
+  if (formFields.length === 0) {
+    throw new functions.https.HttpsError("failed-precondition", "El formulario no tiene campos válidos.");
+  }
+
+  const allowedFieldIds = new Set(
+    formFields.map((field) => field.id).filter((fieldId): fieldId is string => typeof fieldId === "string")
+  );
+  const answersByFieldId = new Map<string, string>();
+  if (Array.isArray(data.answers)) {
+    for (const rawAnswer of data.answers as unknown[]) {
+      const answer = typeof rawAnswer === "object" && rawAnswer !== null
+        ? rawAnswer as Record<string, unknown>
+        : {};
+      if (typeof answer.fieldId !== "string" || !allowedFieldIds.has(answer.fieldId)) continue;
+      if (typeof answer.value !== "string") continue;
+      answersByFieldId.set(answer.fieldId, answer.value.slice(0, 5000));
+    }
+  }
+
+  for (const field of formFields) {
+    if (field.required !== true || typeof field.id !== "string") continue;
+    const value = answersByFieldId.get(field.id) ?? "";
+    const missing = field.type === "checkbox" ? value !== "true" : !value.trim();
+    if (missing) {
+      throw new functions.https.HttpsError("invalid-argument", `Falta responder el campo obligatorio '${String(field.label ?? field.id)}'.`);
+    }
+  }
+
+  const answers = Array.from(answersByFieldId, ([fieldId, value]) => ({ fieldId, value }));
 
   // Sanitize evidence
   const evidence = {
