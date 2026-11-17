@@ -204,8 +204,8 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     const clientIds = data.clientIds.filter((id: unknown) => typeof id === "string" && id.trim());
     for (const cid of clientIds) {
       const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(cid).get();
-      if (!clientSnap.exists) {
-        throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe.`);
+      if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+        throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe o está inactivo.`);
       }
     }
     updates.clientIds = clientIds;
