@@ -15,9 +15,9 @@ const db = admin.firestore();
 // TIPOS Y CONSTANTES
 // ==========================================
 
-type UserRole = "ADMIN" | "CENTRAL" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
+type UserRole = "ADMIN" | "CENTRAL" | "ANALISTA" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
 
-const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
+const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "ANALISTA", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
 
 const COLLECTIONS = {
   USERS: "users",
@@ -35,7 +35,16 @@ const COLLECTIONS = {
 async function getCallerProfile(uid: string) {
   const snap = await db.collection(COLLECTIONS.USERS).doc(uid).get();
   if (!snap.exists) throw new functions.https.HttpsError("not-found", "Perfil de usuario no encontrado.");
-  return snap.data() as { role: UserRole; clientIds: string[]; isActive: boolean; fullName: string };
+
+  const profile = snap.data() ?? {};
+  return {
+    role: profile.role as UserRole,
+    clientIds: Array.isArray(profile.clientIds)
+      ? profile.clientIds.filter((clientId: unknown): clientId is string => typeof clientId === "string")
+      : [],
+    isActive: profile.isActive === true,
+    fullName: typeof profile.fullName === "string" ? profile.fullName : "",
+  };
 }
 
 /** Verifica que el caller tenga uno de los roles permitidos */
@@ -52,23 +61,27 @@ function assertActive(profile: { isActive: boolean }) {
   }
 }
 
+/** Impide dejar el sistema sin ningún administrador activo. */
+async function assertNotLastActiveAdmin(targetUserId: string) {
+  const activeAdmins = await db.collection(COLLECTIONS.USERS)
+    .where("role", "==", "ADMIN")
+    .where("isActive", "==", true)
+    .get();
+
+  if (activeAdmins.size <= 1 && activeAdmins.docs.some((doc) => doc.id === targetUserId)) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "No puedes retirar el último administrador activo del sistema."
+    );
+  }
+}
+
 /** Sanitiza un string */
 function sanitizeString(val: unknown, fieldName: string, maxLen = 255): string {
   if (typeof val !== "string" || !val.trim()) {
     throw new functions.https.HttpsError("invalid-argument", `El campo '${fieldName}' es obligatorio.`);
   }
   return val.trim().slice(0, maxLen);
-}
-
-/** Registra una acción de auditoría */
-async function logAudit(action: string, userId: string, userName: string, details: Record<string, unknown>) {
-  await db.collection(COLLECTIONS.AUDIT_LOGS).add({
-    action,
-    userId,
-    userName,
-    ...details,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
 }
 
 // ==========================================
@@ -87,10 +100,10 @@ export const createUser = functions.https.onCall(async (data, context) => {
   // Validate input
   const fullName = sanitizeString(data.fullName, "fullName", 100);
   const email = sanitizeString(data.email, "email", 255).toLowerCase();
-  const password = sanitizeString(data.password, "password", 128);
-
-  if (password.length < 6) {
-    throw new functions.https.HttpsError("invalid-argument", "La contraseña debe tener al menos 6 caracteres.");
+  // Las contraseñas se validan sin recortar espacios: pueden formar parte de la clave.
+  const password = typeof data.password === "string" ? data.password : "";
+  if (password.length < 6 || password.length > 128) {
+    throw new functions.https.HttpsError("invalid-argument", "La contraseña debe tener entre 6 y 128 caracteres.");
   }
 
   const role = data.role as UserRole;
@@ -105,8 +118,8 @@ export const createUser = functions.https.onCall(async (data, context) => {
   // Validate clientIds exist
   for (const cid of clientIds) {
     const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(cid).get();
-    if (!clientSnap.exists) {
-      throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe.`);
+    if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+      throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe o está inactivo.`);
     }
   }
 
@@ -118,8 +131,11 @@ export const createUser = functions.https.onCall(async (data, context) => {
       password,
       displayName: fullName,
     });
-  } catch (error: any) {
-    if (error.code === "auth/email-already-exists") {
+  } catch (error: unknown) {
+    const authErrorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (authErrorCode === "auth/email-already-exists") {
       throw new functions.https.HttpsError("already-exists", "Ya existe un usuario con ese correo electrónico.");
     }
     throw new functions.https.HttpsError("internal", "Error al crear cuenta de autenticación.");
@@ -135,19 +151,26 @@ export const createUser = functions.https.onCall(async (data, context) => {
     isActive: data.isActive !== false,
   };
 
+  const profileRef = db.collection(COLLECTIONS.USERS).doc(userRecord.uid);
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
   try {
-    await db.collection(COLLECTIONS.USERS).doc(userRecord.uid).set(userProfile);
+    await db.runTransaction(async (tx) => {
+      tx.create(profileRef, userProfile);
+      tx.create(auditRef, {
+        action: "user_created",
+        userId: context.auth!.uid,
+        userName: caller.fullName,
+        targetUserId: userRecord.uid,
+        targetEmail: email,
+        targetRole: role,
+        timestamp: new Date().toISOString(),
+      });
+    });
   } catch (error) {
-    // Rollback: delete Auth account if Firestore fails
+    // Rollback: delete Auth account if Firestore profile/audit fails.
     await admin.auth().deleteUser(userRecord.uid).catch(() => {});
-    throw new functions.https.HttpsError("internal", "Error al guardar perfil del usuario.");
+    throw new functions.https.HttpsError("internal", "No se pudo guardar el perfil y la auditoría del usuario.");
   }
-
-  await logAudit("user_created", context.auth.uid, caller.fullName, {
-    targetUserId: userRecord.uid,
-    targetEmail: email,
-    targetRole: role,
-  });
 
   return { success: true, user: userProfile };
 });
@@ -171,13 +194,16 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", `Rol inválido: ${data.role}`);
   }
 
-  // Verify target user exists
-  const targetSnap = await db.collection(COLLECTIONS.USERS).doc(targetUserId).get();
+  const targetRef = db.collection(COLLECTIONS.USERS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
   if (!targetSnap.exists) {
     throw new functions.https.HttpsError("not-found", "El usuario objetivo no existe.");
   }
 
-  const previousRole = targetSnap.data()?.role;
+  const targetProfile = targetSnap.data();
+  if (targetProfile?.role === "ADMIN" && newRole !== "ADMIN" && targetProfile.isActive === true) {
+    await assertNotLastActiveAdmin(targetUserId);
+  }
 
   // Update
   const updates: Record<string, unknown> = { role: newRole };
@@ -187,20 +213,97 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     const clientIds = data.clientIds.filter((id: unknown) => typeof id === "string" && id.trim());
     for (const cid of clientIds) {
       const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(cid).get();
-      if (!clientSnap.exists) {
-        throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe.`);
+      if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+        throw new functions.https.HttpsError("invalid-argument", `Cliente '${cid}' no existe o está inactivo.`);
       }
     }
     updates.clientIds = clientIds;
   }
 
-  await db.collection(COLLECTIONS.USERS).doc(targetUserId).update(updates);
-
-  await logAudit("role_assigned", context.auth.uid, caller.fullName, {
-    targetUserId,
-    previousRole,
-    newRole,
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  await db.runTransaction(async (tx) => {
+    const currentTarget = await tx.get(targetRef);
+    if (!currentTarget.exists) {
+      throw new functions.https.HttpsError("not-found", "El usuario objetivo ya no existe.");
+    }
+    tx.update(targetRef, updates);
+    tx.create(auditRef, {
+      action: "role_assigned",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      targetUserId,
+      previousRole: currentTarget.data()?.role ?? null,
+      newRole,
+      timestamp: new Date().toISOString(),
+    });
   });
+
+  return { success: true };
+});
+
+// ==========================================
+ // 2B. DELETE USER (Solo ADMIN)
+ // Elimina la cuenta de Authentication y su perfil.
+ // Se conserva la trazabilidad histórica en los registros existentes.
+ // ==========================================
+export const deleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN"]);
+
+  const targetUserId = sanitizeString(data.userId, "userId", 128);
+  if (targetUserId === context.auth.uid) {
+    throw new functions.https.HttpsError("failed-precondition", "No puedes eliminar tu propia cuenta.");
+  }
+
+  const targetRef = db.collection(COLLECTIONS.USERS).doc(targetUserId);
+  const targetSnap = await targetRef.get();
+  if (!targetSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "El perfil del usuario no existe.");
+  }
+
+  const target = targetSnap.data();
+  if (target?.role === "ADMIN" && target.isActive === true) {
+    await assertNotLastActiveAdmin(targetUserId);
+  }
+
+  try {
+    await admin.auth().deleteUser(targetUserId);
+  } catch (error: unknown) {
+    const authErrorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (authErrorCode !== "auth/user-not-found") {
+      throw new functions.https.HttpsError("internal", "No se pudo eliminar la cuenta de autenticación. El perfil se conservó.");
+    }
+  }
+
+  try {
+    const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+    await db.runTransaction(async (tx) => {
+      const currentTarget = await tx.get(targetRef);
+      if (!currentTarget.exists) {
+        throw new functions.https.HttpsError("not-found", "El perfil del usuario ya no existe.");
+      }
+      tx.delete(targetRef);
+      tx.create(auditRef, {
+        action: "user_deleted",
+        userId: context.auth!.uid,
+        userName: caller.fullName,
+        targetUserId,
+        targetEmail: target?.email ?? null,
+        targetRole: target?.role ?? null,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  } catch (error) {
+    // La cuenta Auth ya fue eliminada. El perfil se conserva si la transacción falla.
+    throw new functions.https.HttpsError("internal", "La cuenta de acceso fue eliminada, pero no se pudo completar el borrado y la auditoría del perfil.");
+  }
 
   return { success: true };
 });
@@ -223,8 +326,8 @@ export const createForm = functions.https.onCall(async (data, context) => {
 
   // Verify client exists
   const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
-  if (!clientSnap.exists) {
-    throw new functions.https.HttpsError("invalid-argument", "El cliente seleccionado no existe.");
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente seleccionado no existe o está inactivo.");
   }
 
   // Validate fields
@@ -232,25 +335,44 @@ export const createForm = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "El formulario debe tener al menos un campo.");
   }
 
+  type FormFieldInput = {
+    id?: unknown;
+    label?: unknown;
+    type?: unknown;
+    required?: unknown;
+    options?: unknown;
+    helperText?: unknown;
+    validations?: unknown;
+  };
   const validFieldTypes = ["text", "number", "select", "checkbox", "photo", "signature", "qr"];
-  const sanitizedFields = data.fields.map((field: any, idx: number) => {
+  const sanitizedFields = data.fields.map((rawField: unknown, idx: number) => {
+    const field = typeof rawField === "object" && rawField !== null
+      ? rawField as FormFieldInput
+      : {};
     const label = sanitizeString(field.label, `fields[${idx}].label`, 200);
     const type = field.type;
-    if (!validFieldTypes.includes(type)) {
-      throw new functions.https.HttpsError("invalid-argument", `Tipo de campo inválido: ${type}`);
+    if (typeof type !== "string" || !validFieldTypes.includes(type)) {
+      throw new functions.https.HttpsError("invalid-argument", `Tipo de campo inválido: ${String(type)}`);
     }
+    const validations = typeof field.validations === "object" && field.validations !== null
+      ? field.validations as Record<string, unknown>
+      : undefined;
     return {
-      id: field.id || `field_${Date.now()}_${idx}`,
+      id: typeof field.id === "string" && field.id.trim()
+        ? field.id.trim().slice(0, 100)
+        : `field_${Date.now()}_${idx}`,
       type,
       label,
       required: field.required === true,
-      options: Array.isArray(field.options) ? field.options.filter((o: unknown) => typeof o === "string").slice(0, 50) : [],
+      options: Array.isArray(field.options)
+        ? field.options.filter((option: unknown): option is string => typeof option === "string").slice(0, 50)
+        : [],
       helperText: typeof field.helperText === "string" ? field.helperText.slice(0, 500) : "",
-      ...(field.validations && typeof field.validations === "object" ? {
+      ...(validations ? {
         validations: {
-          ...(typeof field.validations.min === "number" ? { min: field.validations.min } : {}),
-          ...(typeof field.validations.max === "number" ? { max: field.validations.max } : {}),
-          ...(typeof field.validations.pattern === "string" ? { pattern: field.validations.pattern.slice(0, 200) } : {}),
+          ...(typeof validations.min === "number" ? { min: validations.min } : {}),
+          ...(typeof validations.max === "number" ? { max: validations.max } : {}),
+          ...(typeof validations.pattern === "string" ? { pattern: validations.pattern.slice(0, 200) } : {}),
         },
       } : {}),
     };
@@ -264,12 +386,19 @@ export const createForm = functions.https.onCall(async (data, context) => {
     fields: sanitizedFields,
   };
 
-  const docRef = await db.collection(COLLECTIONS.FORMS).add(formDoc);
-
-  await logAudit("form_created", context.auth.uid, caller.fullName, {
-    formId: docRef.id,
-    formName: name,
-    clientId,
+  const docRef = db.collection(COLLECTIONS.FORMS).doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  await db.runTransaction(async (tx) => {
+    tx.create(docRef, formDoc);
+    tx.create(auditRef, {
+      action: "form_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      formId: docRef.id,
+      formName: name,
+      clientId,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   return { success: true, form: { ...formDoc, id: docRef.id } };
@@ -298,6 +427,15 @@ export const createRecord = functions.https.onCall(async (data, context) => {
   }
 
   const formData = formSnap.data();
+  if (formData?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El formulario está desactivado.");
+  }
+
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente no existe o está inactivo.");
+  }
+
   if (formData?.clientId !== clientId) {
     throw new functions.https.HttpsError("invalid-argument", "El formulario no pertenece al cliente indicado.");
   }
@@ -307,13 +445,40 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este formulario.");
   }
 
-  // Sanitize answers
-  const answers = Array.isArray(data.answers)
-    ? data.answers.map((a: any) => ({
-        fieldId: typeof a.fieldId === "string" ? a.fieldId.slice(0, 100) : "",
-        value: typeof a.value === "string" ? a.value.slice(0, 5000) : "",
-      }))
+  // Validate answers against the active form definition.
+  const formFields = Array.isArray(formData?.fields)
+    ? formData.fields.filter((field: unknown): field is Record<string, unknown> =>
+        typeof field === "object" && field !== null)
     : [];
+  if (formFields.length === 0) {
+    throw new functions.https.HttpsError("failed-precondition", "El formulario no tiene campos válidos.");
+  }
+
+  const allowedFieldIds = new Set(
+    formFields.map((field) => field.id).filter((fieldId): fieldId is string => typeof fieldId === "string")
+  );
+  const answersByFieldId = new Map<string, string>();
+  if (Array.isArray(data.answers)) {
+    for (const rawAnswer of data.answers as unknown[]) {
+      const answer = typeof rawAnswer === "object" && rawAnswer !== null
+        ? rawAnswer as Record<string, unknown>
+        : {};
+      if (typeof answer.fieldId !== "string" || !allowedFieldIds.has(answer.fieldId)) continue;
+      if (typeof answer.value !== "string") continue;
+      answersByFieldId.set(answer.fieldId, answer.value.slice(0, 5000));
+    }
+  }
+
+  for (const field of formFields) {
+    if (field.required !== true || typeof field.id !== "string") continue;
+    const value = answersByFieldId.get(field.id) ?? "";
+    const missing = field.type === "checkbox" ? value !== "true" : !value.trim();
+    if (missing) {
+      throw new functions.https.HttpsError("invalid-argument", `Falta responder el campo obligatorio '${String(field.label ?? field.id)}'.`);
+    }
+  }
+
+  const answers = Array.from(answersByFieldId, ([fieldId, value]) => ({ fieldId, value }));
 
   // Sanitize evidence
   const evidence = {
@@ -329,7 +494,7 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     clientId,
     userId: context.auth.uid, // Forzado al caller, no al dato enviado
     createdAt: new Date().toISOString(),
-    status: "PENDING",
+    status: "SENT",
     answers,
     evidence,
     observations: typeof data.observations === "string" ? data.observations.slice(0, 2000) : "",
@@ -343,7 +508,204 @@ export const createRecord = functions.https.onCall(async (data, context) => {
     } : {}),
   };
 
-  const docRef = await db.collection(COLLECTIONS.RECORDS).add(recordDoc);
+  const docRef = db.collection(COLLECTIONS.RECORDS).doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const timestamp = new Date().toISOString();
+
+  // Registro y auditoría se guardan en una sola transacción.
+  await db.runTransaction(async (tx) => {
+    tx.create(docRef, recordDoc);
+    tx.create(auditRef, {
+      action: "record_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      recordId: docRef.id,
+      formId,
+      clientId,
+      status: recordDoc.status,
+      timestamp,
+    });
+  });
 
   return { success: true, record: { ...recordDoc, id: docRef.id } };
+});
+
+
+// ==========================================
+// 4B. UPDATE RECORD STATUS (ADMIN/CENTRAL/COORDINADOR)
+// Cambios de estado auditados desde el servidor.
+// ==========================================
+export const updateRecordStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+
+  const recordId = sanitizeString(data.recordId, "recordId", 128);
+  const nextStatus = data.status;
+  const validStatuses = ["PENDING", "SENT", "REVIEW_COORD", "REVIEW_ADMIN", "APPROVED", "REJECTED"];
+  if (typeof nextStatus !== "string" || !validStatuses.includes(nextStatus)) {
+    throw new functions.https.HttpsError("invalid-argument", "El estado solicitado no es válido.");
+  }
+
+  const recordRef = db.collection(COLLECTIONS.RECORDS).doc(recordId);
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const updates: Record<string, unknown> = { status: nextStatus };
+  if (typeof data.observations === "string") {
+    updates.observations = data.observations.trim().slice(0, 2000);
+  }
+
+  // El estado y su evento de auditoría no pueden quedar desincronizados.
+  await db.runTransaction(async (tx) => {
+    const recordSnap = await tx.get(recordRef);
+    if (!recordSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "El registro no existe.");
+    }
+
+    const record = recordSnap.data()!;
+    if (caller.role === "COORDINADOR" && !(caller.clientIds || []).includes(record.clientId)) {
+      throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este registro.");
+    }
+
+    const currentStatus = record.status as string;
+    const isCoordinatorTransition = caller.role === "COORDINADOR"
+      && currentStatus === "SENT"
+      && (nextStatus === "REVIEW_COORD" || nextStatus === "REJECTED");
+    const isCentralOrAdminTransition = (caller.role === "ADMIN" || caller.role === "CENTRAL")
+      && ["PENDING", "SENT", "REVIEW_COORD"].includes(currentStatus)
+      && (nextStatus === "APPROVED" || nextStatus === "REJECTED");
+    const isAdminFinalTransition = caller.role === "ADMIN"
+      && currentStatus === "REVIEW_ADMIN"
+      && (nextStatus === "APPROVED" || nextStatus === "REJECTED");
+
+    if (!isCoordinatorTransition && !isCentralOrAdminTransition && !isAdminFinalTransition) {
+      throw new functions.https.HttpsError("failed-precondition", "La transición de estado no está permitida para tu rol o el estado actual.");
+    }
+
+    tx.update(recordRef, updates);
+    tx.create(auditRef, {
+      action: nextStatus === "APPROVED" ? "approved" : nextStatus === "REJECTED" ? "rejected" : "status_changed",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      recordId,
+      clientId: record.clientId,
+      previousStatus: record.status,
+      newStatus: nextStatus,
+      observations: updates.observations ?? record.observations ?? "",
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  return { success: true };
+});
+
+// ==========================================
+// 5. CREATE INTELLIGENCE REPORT + CASE
+// Registro operativo y apertura atómica del expediente.
+// El contenido es observacional; no determina culpabilidad.
+// ==========================================
+export const createIntelligenceReport = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"]);
+
+  const clientId = sanitizeString(data.clientId, "clientId", 128);
+  if (!["ADMIN", "CENTRAL"].includes(caller.role) && !(caller.clientIds || []).includes(clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente seleccionado.");
+  }
+
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists || clientSnap.data()?.isActive === false) {
+    throw new functions.https.HttpsError("failed-precondition", "El cliente no existe o está inactivo.");
+  }
+
+  const observedAt = typeof data.observedAt === "string" ? data.observedAt.slice(0, 40) : new Date().toISOString();
+  if (Number.isNaN(Date.parse(observedAt))) {
+    throw new functions.https.HttpsError("invalid-argument", "La fecha del evento no es válida.");
+  }
+
+  const description = sanitizeString(data.description, "description", 5000);
+  const behavior = typeof data.behavior === "string" ? data.behavior.trim().slice(0, 5000) : "";
+  const clothing = typeof data.clothing === "string" ? data.clothing.trim().slice(0, 2000) : "";
+  const physicalDescription = typeof data.physicalDescription === "string" ? data.physicalDescription.trim().slice(0, 2000) : "";
+  const site = typeof data.site === "string" ? data.site.trim().slice(0, 200) : "";
+  const post = typeof data.post === "string" ? data.post.trim().slice(0, 200) : "";
+  const sourceType = typeof data.sourceType === "string" && ["direct_observation", "third_party_report"].includes(data.sourceType)
+    ? data.sourceType : "direct_observation";
+
+  const reportRef = db.collection("intelligenceReports").doc();
+  const caseRef = db.collection("intelligenceCases").doc();
+  const timelineRef = db.collection("intelligenceTimeline").doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const caseNumber = await db.runTransaction(async (tx) => {
+    const counterRef = db.collection("systemCounters").doc("intelligenceCases");
+    const counterSnap = await tx.get(counterRef);
+    const next = (counterSnap.exists ? Number(counterSnap.data()?.value || 0) : 0) + 1;
+    tx.set(counterRef, { value: next, updatedAt: now }, { merge: true });
+
+    const generatedNumber = "INT-" + String(next).padStart(6, "0");
+    const report = {
+      caseId: caseRef.id,
+      caseNumber: generatedNumber,
+      clientId,
+      createdBy: context.auth!.uid,
+      createdByName: caller.fullName,
+      creatorRole: caller.role,
+      observedAt,
+      createdAt: now,
+      description,
+      behavior,
+      clothing,
+      physicalDescription,
+      site,
+      post,
+      sourceType,
+      verificationStatus: "REPORTED",
+      status: "PENDING",
+    };
+    const intelligenceCase = {
+      caseNumber: generatedNumber,
+      clientId,
+      createdBy: context.auth!.uid,
+      createdByName: caller.fullName,
+      assignedTo: null,
+      status: "PENDING",
+      reportIds: [reportRef.id],
+      createdAt: now,
+      updatedAt: now,
+      lastReviewedAt: null,
+    };
+    tx.create(reportRef, report);
+    tx.create(caseRef, intelligenceCase);
+    tx.create(timelineRef, {
+      caseId: caseRef.id,
+      action: "CASE_CREATED",
+      actorId: context.auth!.uid,
+      actorName: caller.fullName,
+      createdAt: now,
+      note: "Expediente abierto automáticamente desde un reporte operativo.",
+    });
+    tx.create(auditRef, {
+      action: "intelligence_report_created",
+      userId: context.auth!.uid,
+      userName: caller.fullName,
+      caseId: caseRef.id,
+      caseNumber: generatedNumber,
+      reportId: reportRef.id,
+      clientId,
+      timestamp: now,
+    });
+    return generatedNumber;
+  });
+
+  return { success: true, caseId: caseRef.id, reportId: reportRef.id, caseNumber };
 });

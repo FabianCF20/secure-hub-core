@@ -12,6 +12,11 @@ export const COLLECTIONS = {
   SYSTEM_CONFIG: "systemConfig",
   AUDIT_LOGS: "auditLogs",
   MINUTE_ENTRIES: "minuteEntries",
+  INTELLIGENCE_CASES: "intelligenceCases",
+  INTELLIGENCE_REPORTS: "intelligenceReports",
+  INTELLIGENCE_TIMELINE: "intelligenceTimeline",
+  INTELLIGENCE_MATCHES: "intelligenceMatches",
+  INTELLIGENCE_VERIFICATIONS: "intelligenceVerifications",
 } as const;
 
 // Documento único para configuración del sistema

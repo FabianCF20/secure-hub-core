@@ -36,6 +36,14 @@ service cloud.firestore {
       return isAuthenticated() && userRole() == 'CENTRAL';
     }
 
+    function isAnalyst() {
+      return isAuthenticated() && userRole() == 'ANALISTA';
+    }
+
+    function canReviewIntelligence() {
+      return isAuthenticated() && isActiveUser() && (isAdmin() || isCentral() || isAnalyst());
+    }
+
     function isSupervisor() {
       return isAuthenticated() && userRole() == 'SUPERVISOR';
     }
@@ -86,16 +94,11 @@ service cloud.firestore {
       );
       // Create bloqueado desde frontend — Cloud Function lo maneja
       allow create: if false;
-      // Update: solo campos no-críticos desde frontend (ADMIN o el propio usuario)
-      // Rol y clientIds se cambian vía Cloud Function assignRole
-      allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() ||
-        request.auth.uid == userId
-      ) && (
-        // No permitir cambiar rol ni clientIds desde frontend
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clientIds'])
-        || isAdmin()
-      );
+      // Solo ADMIN puede actualizar perfiles desde el frontend.
+      // Los campos críticos role y clientIds se modifican exclusivamente
+      // mediante Cloud Function assignRole (Admin SDK).
+      allow update: if isAdmin() && isActiveUser()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clientIds']);
       allow delete: if false;
     }
 
@@ -129,11 +132,8 @@ service cloud.firestore {
       // Create bloqueado desde frontend
       allow create: if false;
       // Update (validar status): ADMIN, CENTRAL, COORDINADOR (de sus clientes)
-      allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() ||
-        isCentral() ||
-        (isCoordinador() && hasClient(resource.data.clientId))
-      );
+      // Las actualizaciones de estado pasan por Cloud Function para auditoría.
+      allow update: if false;
       allow delete: if false;
     }
 
@@ -148,12 +148,27 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
-      ) && request.resource.data.userId == request.auth.uid;
+      ) && request.resource.data.keys().hasAll(['clientId', 'userId', 'userName', 'userRole', 'type', 'content', 'createdAt', 'isClosed'])
+        && request.resource.data.keys().hasOnly(['clientId', 'userId', 'userName', 'userRole', 'type', 'content', 'createdAt', 'isClosed', 'location'])
+        && request.resource.data.clientId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userRole == getUserProfile().role
+        && request.resource.data.userName == getUserProfile().fullName
+        && request.resource.data.type in ['novedad', 'observacion', 'incidente', 'reporte', 'consigna_general']
+        && request.resource.data.content is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.isClosed == false
+        && (isAdmin() || isCentral() || hasClient(request.resource.data.clientId))
+        && (request.resource.data.type != 'consigna_general' || isAdmin() || isCentral() || isCoordinador());
       allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() || isCentral() || isCoordinador()
+        isAdmin() || isCentral() || (isCoordinador() && hasClient(resource.data.clientId))
       ) && resource.data.type == 'consigna_general'
         && request.resource.data.isClosed == true
-        && resource.data.isClosed == false;
+        && resource.data.isClosed == false
+        && request.resource.data.closedBy == request.auth.uid
+        && request.resource.data.closedByName == getUserProfile().fullName
+        && request.resource.data.closedAt is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isClosed', 'closedBy', 'closedByName', 'closedAt']);
       allow delete: if false;
     }
 
@@ -171,6 +186,36 @@ service cloud.firestore {
     match /systemConfig/{docId} {
       allow read: if isAuthenticated() && isActiveUser();
       allow write: if isAdmin() && isActiveUser();
+    }
+
+    // --- INTELIGENCIA: lectura restringida a ADMIN/CENTRAL ---
+    // Las escrituras se realizan exclusivamente mediante Cloud Functions.
+    match /intelligenceCases/{caseId} {
+      allow read: if canReviewIntelligence();
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceReports/{reportId} {
+      allow read: if isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral() || isAnalyst() ||
+        ((isSupervisor() || isCoordinador() || isGuarda()) && resource.data.createdBy == request.auth.uid)
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceTimeline/{entryId} {
+      allow read: if canReviewIntelligence();
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceMatches/{matchId} {
+      allow read: if canReviewIntelligence();
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceVerifications/{verificationId} {
+      allow read: if canReviewIntelligence();
+      allow create, update, delete: if false;
     }
 
     // --- REGLA DEFAULT ---

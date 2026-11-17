@@ -11,7 +11,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { formService, recordService } from "@/services";
-import { firebaseAuditService } from "@/services/firebase/firebaseAuditService";
 import { Form, FormField, FieldAnswer, GeoLocation } from "@/models";
 import { toast } from "sonner";
 import { showActionError } from "@/lib/ui-feedback";
@@ -126,17 +125,6 @@ export default function FormFill() {
         observations,
         ...(location ? { location } : {}),
       });
-
-      // Registrar en auditoría
-      await firebaseAuditService.addLog({
-        recordId: newRecord.id,
-        action: "created",
-        userId: user.id,
-        userName: user.fullName,
-        newStatus: "SENT",
-        observations: "",
-        timestamp: new Date().toISOString(),
-      }).catch(() => {}); // No bloquear si falla
 
       toast.success("Formulario enviado exitosamente");
       navigate("/records");

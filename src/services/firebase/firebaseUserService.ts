@@ -66,7 +66,14 @@ export const firebaseUserService = {
 
     try {
       const { callFunction } = await import("@/lib/callable-functions");
-      const result = await callFunction<any, { success: boolean; user: User }>("createUser", {
+      const result = await callFunction<{
+        fullName: string;
+        email: string;
+        password: string;
+        role: User["role"];
+        clientIds: string[];
+        isActive: boolean;
+      }, { success: boolean; user: User }>("createUser", {
         fullName: userData.fullName,
         email: userData.email,
         password: userData.password,
@@ -120,13 +127,12 @@ export const firebaseUserService = {
 
   async deleteUser(userId: string): Promise<void> {
     try {
-      await ensureFirebaseSession();
-      const { deleteDoc } = await import("firebase/firestore");
-      const docRef = doc(db!, COLLECTIONS.USERS, userId);
-      await deleteDoc(docRef);
-      console.log(`[Firebase] Usuario eliminado de Firestore: ${userId}`);
+      const { callFunction } = await import("@/lib/callable-functions");
+      await callFunction<{ userId: string }, { success: boolean }>("deleteUser", { userId });
+      console.log(`[Firebase] Usuario eliminado de Authentication y Firestore: ${userId}`);
     } catch (error) {
-      throw createUserFriendlyError(error, "No se pudo eliminar el usuario de Firestore.");
+      logError("firebaseUserService.deleteUser", error);
+      throw createUserFriendlyError(error, "No se pudo eliminar el usuario.");
     }
   },
 };

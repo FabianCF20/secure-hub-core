@@ -25,6 +25,7 @@ import { showActionError } from "@/lib/ui-feedback";
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrador",
   CENTRAL: "Central",
+  ANALISTA: "Analista de Inteligencia",
   SUPERVISOR: "Supervisor",
   COORDINADOR: "Coordinador",
   CLIENTE: "Cliente",
@@ -34,6 +35,7 @@ const roleLabels: Record<UserRole, string> = {
 const roleColors: Record<UserRole, string> = {
   ADMIN: "bg-destructive",
   CENTRAL: "bg-primary",
+  ANALISTA: "bg-violet-600",
   SUPERVISOR: "bg-warning",
   COORDINADOR: "bg-info",
   CLIENTE: "bg-success",
@@ -236,6 +238,7 @@ export default function Users() {
                   <SelectItem value="all">Todos los roles</SelectItem>
                   <SelectItem value="ADMIN">Administrador</SelectItem>
                   <SelectItem value="CENTRAL">Central</SelectItem>
+                  <SelectItem value="ANALISTA">Analista de Inteligencia</SelectItem>
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
                   <SelectItem value="COORDINADOR">Coordinador</SelectItem>
                   <SelectItem value="CLIENTE">Cliente</SelectItem>
@@ -384,6 +387,7 @@ export default function Users() {
             <SelectContent>
               <SelectItem value="ADMIN">Administrador</SelectItem>
               <SelectItem value="CENTRAL">Central</SelectItem>
+              <SelectItem value="ANALISTA">Analista de Inteligencia</SelectItem>
               <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
               <SelectItem value="COORDINADOR">Coordinador</SelectItem>
               <SelectItem value="CLIENTE">Cliente</SelectItem>

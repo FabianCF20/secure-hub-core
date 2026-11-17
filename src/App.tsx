@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MainLayout } from "@/components/layout";
@@ -18,10 +18,17 @@ import RecordDetail from "./pages/RecordDetail";
 import Reports from "./pages/Reports";
 import Minuta from "./pages/Minuta";
 import Settings from "./pages/Settings";
+import Intelligence from "./pages/Intelligence";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function RoleHome() {
+  const { user } = useAuth();
+  if (user?.role === "ANALISTA") return <Navigate to="/intelligence" replace />;
+  return <Dashboard />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -40,7 +47,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<RoleHome />} />
                 <Route path="/clients" element={
                   <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <Clients />
@@ -89,6 +96,11 @@ const App = () => (
                 <Route path="/reports" element={
                   <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR"]}>
                     <Reports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/intelligence" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "ANALISTA", "SUPERVISOR", "COORDINADOR", "GUARDA"]}>
+                    <Intelligence />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={
