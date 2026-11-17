@@ -35,7 +35,16 @@ const COLLECTIONS = {
 async function getCallerProfile(uid: string) {
   const snap = await db.collection(COLLECTIONS.USERS).doc(uid).get();
   if (!snap.exists) throw new functions.https.HttpsError("not-found", "Perfil de usuario no encontrado.");
-  return snap.data() as { role: UserRole; clientIds: string[]; isActive: boolean; fullName: string };
+
+  const profile = snap.data() ?? {};
+  return {
+    role: profile.role as UserRole,
+    clientIds: Array.isArray(profile.clientIds)
+      ? profile.clientIds.filter((clientId: unknown): clientId is string => typeof clientId === "string")
+      : [],
+    isActive: profile.isActive === true,
+    fullName: typeof profile.fullName === "string" ? profile.fullName : "",
+  };
 }
 
 /** Verifica que el caller tenga uno de los roles permitidos */
