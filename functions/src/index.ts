@@ -400,6 +400,7 @@ export const createIntelligenceReport = functions.https.onCall(async (data, cont
     const generatedNumber = "INT-" + String(next).padStart(6, "0");
     const report = {
       caseId: caseRef.id,
+      caseNumber: generatedNumber,
       clientId,
       createdBy: context.auth!.uid,
       createdByName: caller.fullName,
