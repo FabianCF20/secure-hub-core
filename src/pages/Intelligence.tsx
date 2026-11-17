@@ -18,6 +18,7 @@ type OwnReport = { id: string; caseId: string; caseNumber: string; observedAt: s
 
 export default function Intelligence() {
   const { user } = useAuth();
+  const canReview = user?.role === "ADMIN" || user?.role === "CENTRAL" || user?.role === "ANALISTA";
   const isCentral = user?.role === "ADMIN" || user?.role === "CENTRAL";
   const [clients, setClients] = useState<Client[]>([]);
   const [cases, setCases] = useState<IntelligenceCaseSummary[]>([]);
@@ -41,7 +42,7 @@ export default function Intelligence() {
     try {
       const clientData = isCentral ? await clientService.getClients() : await clientService.getClientsByIds(user.clientIds || []);
       setClients(clientData);
-      if (isCentral) setCases(await firebaseIntelligenceService.getCases());
+      if (canReview) setCases(await firebaseIntelligenceService.getCases());
       else setReports(await firebaseIntelligenceService.getMyReports(user.id) as OwnReport[]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo cargar Inteligencia.");
@@ -71,7 +72,7 @@ export default function Intelligence() {
   if (loading) return <LoadingState message="Cargando módulo de inteligencia..." />;
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title={isCentral ? "Inteligencia y seguimiento" : "Reportar observación"} description={isCentral ? "Bandeja central de expedientes para revisión y verificación." : "Registra hechos observados. SecureHub abrirá automáticamente un expediente para revisión central."} />
+      <PageHeader title={canReview ? "Inteligencia y seguimiento" : "Reportar observación"} description={canReview ? "Bandeja de expedientes para revisión y verificación autorizada." : "Registra hechos observados. SecureHub abrirá automáticamente un expediente para revisión central."} />
       {!isCentral && <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><PlusCircle className="h-5 w-5" />Nuevo reporte de observación</CardTitle><CardDescription>Registra hechos concretos y su contexto. No incluyas conclusiones sobre culpabilidad ni datos sensibles innecesarios.</CardDescription></CardHeader>
         <CardContent><form onSubmit={submitReport} className="space-y-5">
@@ -92,7 +93,7 @@ export default function Intelligence() {
           <Button type="submit" disabled={saving || clients.length === 0}>{saving ? "Guardando..." : "Registrar y abrir expediente"}</Button>
         </form></CardContent>
       </Card>}
-      {isCentral ? <Card>
+      {canReview ? <Card>
         <CardHeader><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Bandeja de expedientes</CardTitle><CardDescription>{cases.length} expedientes registrados</CardDescription></div><div className="flex gap-2"><div className="relative flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Buscar código, reportante o cliente..." value={search} onChange={e => setSearch(e.target.value)} /></div><Button variant="outline" size="icon" onClick={loadData}><RefreshCw className="h-4 w-4" /></Button></div></div></CardHeader>
         <CardContent>{filteredCases.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No hay expedientes para mostrar.</p> : <div className="space-y-3">{filteredCases.map(item => <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><ClipboardList className="h-5 w-5 text-primary" /><div><p className="font-semibold">{item.caseNumber}</p><p className="text-xs text-muted-foreground">Reportado por {item.createdByName} · Cliente {item.clientId}</p></div></div><Badge variant="outline">{item.status === "PENDING" ? "Pendiente de verificación" : item.status}</Badge></div>)}</div>}</CardContent>
       </Card> : <Card>
