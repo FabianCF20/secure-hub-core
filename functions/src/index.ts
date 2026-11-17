@@ -413,6 +413,55 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
 
 // ==========================================
+// 4B. UPDATE RECORD STATUS (ADMIN/CENTRAL/COORDINADOR)
+// Cambios de estado auditados desde el servidor.
+// ==========================================
+export const updateRecordStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+
+  const recordId = sanitizeString(data.recordId, "recordId", 128);
+  const nextStatus = data.status;
+  const validStatuses = ["PENDING", "SENT", "REVIEW_COORD", "REVIEW_ADMIN", "APPROVED", "REJECTED"];
+  if (typeof nextStatus !== "string" || !validStatuses.includes(nextStatus)) {
+    throw new functions.https.HttpsError("invalid-argument", "El estado solicitado no es válido.");
+  }
+
+  const recordRef = db.collection(COLLECTIONS.RECORDS).doc(recordId);
+  const recordSnap = await recordRef.get();
+  if (!recordSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "El registro no existe.");
+  }
+
+  const record = recordSnap.data()!;
+  if (caller.role === "COORDINADOR" && !(caller.clientIds || []).includes(record.clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente de este registro.");
+  }
+
+  const previousStatus = record.status;
+  const updates: Record<string, unknown> = { status: nextStatus };
+  if (typeof data.observations === "string") {
+    updates.observations = data.observations.trim().slice(0, 2000);
+  }
+
+  await recordRef.update(updates);
+  await logAudit("record_status_changed", context.auth.uid, caller.fullName, {
+    recordId,
+    clientId: record.clientId,
+    previousStatus,
+    newStatus: nextStatus,
+    observations: updates.observations ?? record.observations ?? "",
+  });
+
+  return { success: true };
+});
+
+// ==========================================
 // 5. CREATE INTELLIGENCE REPORT + CASE
 // Registro operativo y apertura atómica del expediente.
 // El contenido es observacional; no determina culpabilidad.
