@@ -66,7 +66,13 @@ export const navItems: NavItem[] = [
     to: "/intelligence",
     icon: ShieldCheck,
     label: "Inteligencia",
-    allowedRoles: ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"],
+    allowedRoles: ["ADMIN", "CENTRAL", "ANALISTA"],
+  },
+  {
+    to: "/intelligence",
+    icon: ShieldCheck,
+    label: "Reportar observación",
+    allowedRoles: ["SUPERVISOR", "COORDINADOR", "GUARDA"],
   },
   {
     to: "/settings",
@@ -78,9 +84,5 @@ export const navItems: NavItem[] = [
 
 export function getNavItemsForRole(role: UserRole | undefined): NavItem[] {
   if (!role) return [];
-  return navItems.filter((item) => item.allowedRoles.includes(role)).map((item) =>
-    item.to === "/intelligence" && !["ADMIN", "CENTRAL"].includes(role)
-      ? { ...item, label: "Reportar observación" }
-      : item
-  );
+  return navItems.filter((item) => item.allowedRoles.includes(role));
 }
