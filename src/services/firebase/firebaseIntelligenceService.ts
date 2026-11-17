@@ -14,7 +14,7 @@ export const firebaseIntelligenceService = {
     return callFunction<IntelligenceReportInput, CreatedIntelligenceReport>("createIntelligenceReport", input);
   },
   async getMyReports(userId: string) {
-    const q = query(collection(db!, "intelligenceReports"), where("createdBy", "==", userId), orderBy("createdAt", "desc"));
+    const q = query(collection(db!, "intelligenceReports"), where("createdBy", "==", userId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
   },
