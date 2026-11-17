@@ -52,6 +52,21 @@ function assertActive(profile: { isActive: boolean }) {
   }
 }
 
+/** Impide dejar el sistema sin ningún administrador activo. */
+async function assertNotLastActiveAdmin(targetUserId: string) {
+  const activeAdmins = await db.collection(COLLECTIONS.USERS)
+    .where("role", "==", "ADMIN")
+    .where("isActive", "==", true)
+    .get();
+
+  if (activeAdmins.size <= 1 && activeAdmins.docs.some((doc) => doc.id === targetUserId)) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "No puedes retirar el último administrador activo del sistema."
+    );
+  }
+}
+
 /** Sanitiza un string */
 function sanitizeString(val: unknown, fieldName: string, maxLen = 255): string {
   if (typeof val !== "string" || !val.trim()) {
@@ -176,6 +191,11 @@ export const assignRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("not-found", "El usuario objetivo no existe.");
   }
 
+  const targetProfile = targetSnap.data();
+  if (targetProfile?.role === "ADMIN" && newRole !== "ADMIN" && targetProfile.isActive === true) {
+    await assertNotLastActiveAdmin(targetUserId);
+  }
+
   // Update
   const updates: Record<string, unknown> = { role: newRole };
 
@@ -238,6 +258,10 @@ export const deleteUser = functions.https.onCall(async (data, context) => {
   }
 
   const target = targetSnap.data();
+  if (target?.role === "ADMIN" && target.isActive === true) {
+    await assertNotLastActiveAdmin(targetUserId);
+  }
+
   try {
     await admin.auth().deleteUser(targetUserId);
   } catch (error: unknown) {
