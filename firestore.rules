@@ -184,7 +184,7 @@ service cloud.firestore {
     // --- INTELIGENCIA: lectura restringida a ADMIN/CENTRAL ---
     // Las escrituras se realizan exclusivamente mediante Cloud Functions.
     match /intelligenceCases/{caseId} {
-      allow read: if isAuthenticated() && isActiveUser() && canReviewIntelligence();
+      allow read: if canReviewIntelligence();
       allow create, update, delete: if false;
     }
 
