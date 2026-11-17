@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-type OwnReport = { id: string; caseId: string; observedAt: string; description: string; status: string; verificationStatus: string; };
+type OwnReport = { id: string; caseId: string; caseNumber: string; observedAt: string; description: string; status: string; verificationStatus: string; };
 
 export default function Intelligence() {
   const { user } = useAuth();
@@ -97,7 +97,7 @@ export default function Intelligence() {
         <CardContent>{filteredCases.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No hay expedientes para mostrar.</p> : <div className="space-y-3">{filteredCases.map(item => <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><ClipboardList className="h-5 w-5 text-primary" /><div><p className="font-semibold">{item.caseNumber}</p><p className="text-xs text-muted-foreground">Reportado por {item.createdByName} · Cliente {item.clientId}</p></div></div><Badge variant="outline">{item.status === "PENDING" ? "Pendiente de verificación" : item.status}</Badge></div>)}</div>}</CardContent>
       </Card> : <Card>
         <CardHeader><CardTitle>Mis reportes</CardTitle><CardDescription>Solo puedes consultar los reportes que tú has creado y su estado.</CardDescription></CardHeader>
-        <CardContent>{reports.length === 0 ? <p className="py-6 text-sm text-muted-foreground">Aún no has registrado observaciones.</p> : <div className="space-y-3">{reports.map(report => <div key={report.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">Reporte {report.id.slice(0, 8)}</span><Badge variant="outline">{report.verificationStatus === "REPORTED" ? "Pendiente de revisión" : report.verificationStatus}</Badge></div><p className="mt-2 text-sm">{report.description}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(report.observedAt).toLocaleString("es-CO")}</p></div>)}</div>}</CardContent>
+        <CardContent>{reports.length === 0 ? <p className="py-6 text-sm text-muted-foreground">Aún no has registrado observaciones.</p> : <div className="space-y-3">{reports.map(report => <div key={report.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">Expediente {report.caseNumber || report.id.slice(0, 8)}</span><Badge variant="outline">{report.verificationStatus === "REPORTED" ? "Pendiente de revisión" : report.verificationStatus}</Badge></div><p className="mt-2 text-sm">{report.description}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(report.observedAt).toLocaleString("es-CO")}</p></div>)}</div>}</CardContent>
       </Card>}
     </div>
   );
