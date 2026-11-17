@@ -136,7 +136,7 @@ service cloud.firestore {
         isAdmin() ||
         isCentral() ||
         (isCoordinador() && hasClient(resource.data.clientId))
-      );
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'observations']);
       allow delete: if false;
     }
 
@@ -151,12 +151,16 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated() && isActiveUser() && (
         isAdmin() || isCentral() || isSupervisor() || isCoordinador() || isGuarda()
-      ) && request.resource.data.userId == request.auth.uid;
+      ) && request.resource.data.userId == request.auth.uid
+        && (isAdmin() || isCentral() || hasClient(request.resource.data.clientId));
       allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() || isCentral() || isCoordinador()
+        isAdmin() || isCentral() || (isCoordinador() && hasClient(resource.data.clientId))
       ) && resource.data.type == 'consigna_general'
         && request.resource.data.isClosed == true
-        && resource.data.isClosed == false;
+        && resource.data.isClosed == false
+        && request.resource.data.closedBy == request.auth.uid
+        && request.resource.data.closedByName == getUserProfile().fullName
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isClosed', 'closedBy', 'closedByName', 'closedAt']);
       allow delete: if false;
     }
 
