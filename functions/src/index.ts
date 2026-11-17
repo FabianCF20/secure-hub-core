@@ -15,9 +15,9 @@ const db = admin.firestore();
 // TIPOS Y CONSTANTES
 // ==========================================
 
-type UserRole = "ADMIN" | "CENTRAL" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
+type UserRole = "ADMIN" | "CENTRAL" | "ANALISTA" | "SUPERVISOR" | "COORDINADOR" | "CLIENTE" | "GUARDA";
 
-const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
+const VALID_ROLES: UserRole[] = ["ADMIN", "CENTRAL", "ANALISTA", "SUPERVISOR", "COORDINADOR", "CLIENTE", "GUARDA"];
 
 const COLLECTIONS = {
   USERS: "users",
