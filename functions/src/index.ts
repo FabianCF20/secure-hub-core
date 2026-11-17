@@ -347,3 +347,101 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
   return { success: true, record: { ...recordDoc, id: docRef.id } };
 });
+
+
+// ==========================================
+// 5. CREATE INTELLIGENCE REPORT + CASE
+// Registro operativo y apertura atómica del expediente.
+// El contenido es observacional; no determina culpabilidad.
+// ==========================================
+export const createIntelligenceReport = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "SUPERVISOR", "COORDINADOR", "GUARDA"]);
+
+  const clientId = sanitizeString(data.clientId, "clientId", 128);
+  if (!["ADMIN", "CENTRAL"].includes(caller.role) && !(caller.clientIds || []).includes(clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente seleccionado.");
+  }
+
+  const observedAt = typeof data.observedAt === "string" ? data.observedAt.slice(0, 40) : new Date().toISOString();
+  if (Number.isNaN(Date.parse(observedAt))) {
+    throw new functions.https.HttpsError("invalid-argument", "La fecha del evento no es válida.");
+  }
+
+  const description = sanitizeString(data.description, "description", 5000);
+  const behavior = typeof data.behavior === "string" ? data.behavior.trim().slice(0, 5000) : "";
+  const clothing = typeof data.clothing === "string" ? data.clothing.trim().slice(0, 2000) : "";
+  const physicalDescription = typeof data.physicalDescription === "string" ? data.physicalDescription.trim().slice(0, 2000) : "";
+  const site = typeof data.site === "string" ? data.site.trim().slice(0, 200) : "";
+  const post = typeof data.post === "string" ? data.post.trim().slice(0, 200) : "";
+  const sourceType = typeof data.sourceType === "string" && ["direct_observation", "third_party_report"].includes(data.sourceType)
+    ? data.sourceType : "direct_observation";
+
+  const reportRef = db.collection("intelligenceReports").doc();
+  const caseRef = db.collection("intelligenceCases").doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const caseNumber = await db.runTransaction(async (tx) => {
+    const counterRef = db.collection("systemCounters").doc("intelligenceCases");
+    const counterSnap = await tx.get(counterRef);
+    const next = (counterSnap.exists ? Number(counterSnap.data()?.value || 0) : 0) + 1;
+    tx.set(counterRef, { value: next, updatedAt: now }, { merge: true });
+
+    const generatedNumber = "INT-" + String(next).padStart(6, "0");
+    const report = {
+      caseId: caseRef.id,
+      clientId,
+      createdBy: context.auth!.uid,
+      createdByName: caller.fullName,
+      creatorRole: caller.role,
+      observedAt,
+      createdAt: now,
+      description,
+      behavior,
+      clothing,
+      physicalDescription,
+      site,
+      post,
+      sourceType,
+      verificationStatus: "REPORTED",
+      status: "PENDING",
+    };
+    const intelligenceCase = {
+      caseNumber: generatedNumber,
+      clientId,
+      createdBy: context.auth!.uid,
+      createdByName: caller.fullName,
+      assignedTo: null,
+      status: "PENDING",
+      reportIds: [reportRef.id],
+      createdAt: now,
+      updatedAt: now,
+      lastReviewedAt: null,
+    };
+    tx.create(reportRef, report);
+    tx.create(caseRef, intelligenceCase);
+    tx.create(db.collection("intelligenceTimeline").doc(), {
+      caseId: caseRef.id,
+      action: "CASE_CREATED",
+      actorId: context.auth!.uid,
+      actorName: caller.fullName,
+      createdAt: now,
+      note: "Expediente abierto automáticamente desde un reporte operativo.",
+    });
+    return generatedNumber;
+  });
+
+  await logAudit("intelligence_report_created", context.auth.uid, caller.fullName, {
+    caseId: caseRef.id,
+    caseNumber,
+    reportId: reportRef.id,
+    clientId,
+  });
+
+  return { success: true, caseId: caseRef.id, reportId: reportRef.id, caseNumber };
+});
