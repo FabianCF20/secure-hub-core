@@ -7,7 +7,8 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
-  BookOpen,\n  ShieldCheck,
+  BookOpen,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -71,5 +72,9 @@ export const navItems: NavItem[] = [
 
 export function getNavItemsForRole(role: UserRole | undefined): NavItem[] {
   if (!role) return [];
-  return navItems.filter((item) => item.allowedRoles.includes(role)).map((item) =>\n    item.to === "/intelligence" && !["ADMIN", "CENTRAL"].includes(role)\n      ? { ...item, label: "Reportar observación" }\n      : item\n  );
+  return navItems.filter((item) => item.allowedRoles.includes(role)).map((item) =>
+    item.to === "/intelligence" && !["ADMIN", "CENTRAL"].includes(role)
+      ? { ...item, label: "Reportar observación" }
+      : item
+  );
 }
