@@ -94,16 +94,11 @@ service cloud.firestore {
       );
       // Create bloqueado desde frontend — Cloud Function lo maneja
       allow create: if false;
-      // Update: solo campos no-críticos desde frontend (ADMIN o el propio usuario)
-      // Rol y clientIds se cambian vía Cloud Function assignRole
-      allow update: if isAuthenticated() && isActiveUser() && (
-        isAdmin() ||
-        request.auth.uid == userId
-      ) && (
-        // No permitir cambiar rol ni clientIds desde frontend
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clientIds'])
-        || isAdmin()
-      );
+      // Solo ADMIN puede actualizar perfiles desde el frontend.
+      // Los campos críticos role y clientIds se modifican exclusivamente
+      // mediante Cloud Function assignRole (Admin SDK).
+      allow update: if isAdmin() && isActiveUser()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clientIds']);
       allow delete: if false;
     }
 
