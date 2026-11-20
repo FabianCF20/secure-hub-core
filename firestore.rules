@@ -60,6 +60,21 @@ service cloud.firestore {
       return isAuthenticated() && clientId in getUserProfile().clientIds;
     }
 
+    // Acceso a expedientes de inteligencia: ADMIN/CENTRAL global, COORDINADOR por cliente,
+    // SUPERVISOR/GUARDA únicamente como propietario. CLIENTE no accede a este módulo.
+    function canReadIntelligenceCase(caseData) {
+      return isAuthenticated() && isActiveUser() && (
+        isAdmin() || isCentral() ||
+        (isCoordinador() && hasClient(caseData.clientId)) ||
+        ((isSupervisor() || isGuarda()) && caseData.ownerId == request.auth.uid)
+      );
+    }
+
+    function canReadIntelligenceChild(caseId) {
+      return exists(/databases/$(database)/documents/intelligenceCases/$(caseId))
+        && canReadIntelligenceCase(get(/databases/$(database)/documents/intelligenceCases/$(caseId)).data);
+    }
+
     // ============================================
     // REGLAS POR COLECCIÓN
     // ============================================
@@ -171,6 +186,38 @@ service cloud.firestore {
     match /systemConfig/{docId} {
       allow read: if isAuthenticated() && isActiveUser();
       allow write: if isAdmin() && isActiveUser();
+    }
+
+    // --- INTELIGENCIA ---
+    // Toda escritura se realizará mediante Cloud Functions con autorización y auditoría.
+    match /intelligenceCases/{caseId} {
+      allow get, list: if canReadIntelligenceCase(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceEntities/{entityId} {
+      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceEvents/{eventId} {
+      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceEvidence/{evidenceId} {
+      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceFindings/{findingId} {
+      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
+      allow create, update, delete: if false;
+    }
+
+    match /intelligenceMatches/{matchId} {
+      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
+      allow create, update, delete: if false;
     }
 
     // --- REGLA DEFAULT ---
