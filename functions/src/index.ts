@@ -524,7 +524,11 @@ export const listAssignableIntelligenceOwners = functions.https.onCall(async (da
       };
     })
     .filter((user) => user.isActive && ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role))
-    .map(({ isActive: _isActive, ...user }) => user);
+    .map((user) => ({
+      id: user.id,
+      fullName: user.fullName,
+      role: user.role,
+    }));
 
   await logAudit("intelligence_assignable_owners_listed", context.auth.uid, caller.fullName, {
     clientId,
