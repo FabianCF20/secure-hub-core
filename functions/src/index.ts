@@ -25,6 +25,12 @@ const COLLECTIONS = {
   FORMS: "forms",
   RECORDS: "records",
   AUDIT_LOGS: "auditLogs",
+  INTELLIGENCE_CASES: "intelligenceCases",
+  INTELLIGENCE_ENTITIES: "intelligenceEntities",
+  INTELLIGENCE_EVENTS: "intelligenceEvents",
+  INTELLIGENCE_EVIDENCE: "intelligenceEvidence",
+  INTELLIGENCE_FINDINGS: "intelligenceFindings",
+  INTELLIGENCE_MATCHES: "intelligenceMatches",
 };
 
 // ==========================================
@@ -362,6 +368,9 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
   const caller = await getCallerProfile(context.auth.uid);
   assertActive(caller);
   assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+  if (!data || typeof data !== "object") {
+    throw new functions.https.HttpsError("invalid-argument", "La información del expediente no es válida.");
+  }
 
   const title = sanitizeString(data.title, "title", 180);
   const summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 4000) : "";
@@ -377,8 +386,8 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
   }
 
   const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
-  if (!clientSnap.exists) {
-    throw new functions.https.HttpsError("not-found", "El cliente indicado no existe.");
+  if (!clientSnap.exists || clientSnap.data()?.isActive !== true) {
+    throw new functions.https.HttpsError("not-found", "El cliente indicado no existe o está inactivo.");
   }
   if (caller.role === "COORDINADOR" && (!Array.isArray(caller.clientIds) || !caller.clientIds.includes(clientId))) {
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
@@ -400,7 +409,7 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
   }
 
   const now = new Date().toISOString();
-  const caseRef = db.collection("intelligenceCases").doc();
+  const caseRef = db.collection(COLLECTIONS.INTELLIGENCE_CASES).doc();
   const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
   const caseData = {
     clientId,
@@ -501,7 +510,6 @@ export const listAssignableIntelligenceOwners = functions.https.onCall(async (da
 
   const result = await db.collection(COLLECTIONS.USERS)
     .where("clientIds", "array-contains", clientId)
-    .where("isActive", "==", true)
     .limit(100)
     .get();
 
@@ -512,9 +520,11 @@ export const listAssignableIntelligenceOwners = functions.https.onCall(async (da
         id: snapshot.id,
         fullName: typeof user.fullName === "string" ? user.fullName : "Usuario",
         role: user.role,
+        isActive: user.isActive === true,
       };
     })
-    .filter((user) => ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role));
+    .filter((user) => user.isActive && ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role))
+    .map(({ isActive: _isActive, ...user }) => user);
 
   await logAudit("intelligence_assignable_owners_listed", context.auth.uid, caller.fullName, {
     clientId,
