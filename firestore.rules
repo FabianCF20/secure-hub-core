@@ -60,21 +60,6 @@ service cloud.firestore {
       return isAuthenticated() && getUserProfile().clientIds is list && clientId in getUserProfile().clientIds;
     }
 
-    // Acceso a expedientes de inteligencia: ADMIN/CENTRAL global, COORDINADOR por cliente,
-    // SUPERVISOR/GUARDA únicamente como propietario. CLIENTE no accede a este módulo.
-    function canReadIntelligenceCase(caseData) {
-      return isAuthenticated() && isActiveUser() && (
-        isAdmin() || isCentral() ||
-        (isCoordinador() && hasClient(caseData.clientId)) ||
-        ((isSupervisor() || isGuarda()) && caseData.ownerId == request.auth.uid)
-      );
-    }
-
-    function canReadIntelligenceChild(caseId) {
-      return exists(/databases/$(database)/documents/intelligenceCases/$(caseId))
-        && canReadIntelligenceCase(get(/databases/$(database)/documents/intelligenceCases/$(caseId)).data);
-    }
-
     // ============================================
     // REGLAS POR COLECCIÓN
     // ============================================
