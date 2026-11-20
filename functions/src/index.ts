@@ -347,3 +347,91 @@ export const createRecord = functions.https.onCall(async (data, context) => {
 
   return { success: true, record: { ...recordDoc, id: docRef.id } };
 });
+
+
+// ==========================================
+// 5. CREATE INTELLIGENCE CASE
+// Recepción manual o desde fuentes internas.
+// La asignación y el alcance se validan siempre en servidor.
+// ==========================================
+export const createIntelligenceCase = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+
+  const title = sanitizeString(data.title, "title", 180);
+  const summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 4000) : "";
+  const clientId = sanitizeString(data.clientId, "clientId", 128);
+  const classification = data.classification;
+  const sourceType = data.sourceType;
+
+  if (!["PUBLIC_INTERNAL", "CONFIDENTIAL", "RESTRICTED"].includes(classification)) {
+    throw new functions.https.HttpsError("invalid-argument", "Clasificación de expediente inválida.");
+  }
+  if (!["INTERNAL", "MANUAL"].includes(sourceType)) {
+    throw new functions.https.HttpsError("invalid-argument", "La fuente debe ser interna o manual.");
+  }
+
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "El cliente indicado no existe.");
+  }
+  if (caller.role === "COORDINADOR" && !caller.clientIds.includes(clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
+  }
+
+  const requestedOwnerId = typeof data.ownerId === "string" && data.ownerId.trim()
+    ? data.ownerId.trim()
+    : context.auth.uid;
+  const ownerSnap = await db.collection(COLLECTIONS.USERS).doc(requestedOwnerId).get();
+  if (!ownerSnap.exists || ownerSnap.data()?.isActive !== true) {
+    throw new functions.https.HttpsError("invalid-argument", "El responsable no existe o está inactivo.");
+  }
+  const owner = ownerSnap.data()!;
+  if (!["ADMIN", "CENTRAL"].includes(caller.role)) {
+    if (!Array.isArray(owner.clientIds) || !owner.clientIds.includes(clientId)) {
+      throw new functions.https.HttpsError("permission-denied", "El responsable no está asignado a este cliente.");
+    }
+  }
+  if (!["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(owner.role)) {
+    throw new functions.https.HttpsError("invalid-argument", "El responsable debe ser personal operativo o coordinador.");
+  }
+
+  const now = new Date().toISOString();
+  const caseRef = db.collection("intelligenceCases").doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const caseData = {
+    clientId,
+    title,
+    summary,
+    classification,
+    status: "OPEN",
+    ownerId: requestedOwnerId,
+    createdBy: context.auth.uid,
+    createdAt: now,
+    updatedAt: now,
+    sourceType,
+    entityIds: [],
+    tags: [],
+  };
+
+  const batch = db.batch();
+  batch.create(caseRef, caseData);
+  batch.create(auditRef, {
+    action: "intelligence_case_created",
+    userId: context.auth.uid,
+    userName: caller.fullName,
+    targetId: caseRef.id,
+    clientId,
+    classification,
+    sourceType,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+
+  return { success: true, case: { id: caseRef.id, ...caseData } };
+});
