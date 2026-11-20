@@ -189,35 +189,25 @@ service cloud.firestore {
     }
 
     // --- INTELIGENCIA ---
-    // Toda escritura se realizará mediante Cloud Functions con autorización y auditoría.
+    // Lectura y escritura de datos de inteligencia se exponen exclusivamente
+    // mediante Cloud Functions autenticadas. Evita lecturas directas y caché offline.
     match /intelligenceCases/{caseId} {
-      allow get, list: if canReadIntelligenceCase(resource.data);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
-
     match /intelligenceEntities/{entityId} {
-      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
-
     match /intelligenceEvents/{eventId} {
-      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
-
     match /intelligenceEvidence/{evidenceId} {
-      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
-
     match /intelligenceFindings/{findingId} {
-      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
-
     match /intelligenceMatches/{matchId} {
-      allow get, list: if canReadIntelligenceChild(resource.data.caseId);
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
 
     // --- REGLA DEFAULT ---
