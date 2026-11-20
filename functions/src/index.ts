@@ -380,7 +380,7 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
   if (!clientSnap.exists) {
     throw new functions.https.HttpsError("not-found", "El cliente indicado no existe.");
   }
-  if (caller.role === "COORDINADOR" && !caller.clientIds.includes(clientId)) {
+  if (caller.role === "COORDINADOR" && (!Array.isArray(caller.clientIds) || !caller.clientIds.includes(clientId))) {
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
   }
 
