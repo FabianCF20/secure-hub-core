@@ -25,6 +25,12 @@ const COLLECTIONS = {
   FORMS: "forms",
   RECORDS: "records",
   AUDIT_LOGS: "auditLogs",
+  INTELLIGENCE_CASES: "intelligenceCases",
+  INTELLIGENCE_ENTITIES: "intelligenceEntities",
+  INTELLIGENCE_EVENTS: "intelligenceEvents",
+  INTELLIGENCE_EVIDENCE: "intelligenceEvidence",
+  INTELLIGENCE_FINDINGS: "intelligenceFindings",
+  INTELLIGENCE_MATCHES: "intelligenceMatches",
 };
 
 // ==========================================
@@ -346,4 +352,186 @@ export const createRecord = functions.https.onCall(async (data, context) => {
   const docRef = await db.collection(COLLECTIONS.RECORDS).add(recordDoc);
 
   return { success: true, record: { ...recordDoc, id: docRef.id } };
+});
+
+
+// ==========================================
+// 5. CREATE INTELLIGENCE CASE
+// Recepción manual o desde fuentes internas.
+// La asignación y el alcance se validan siempre en servidor.
+// ==========================================
+export const createIntelligenceCase = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+  if (!data || typeof data !== "object") {
+    throw new functions.https.HttpsError("invalid-argument", "La información del expediente no es válida.");
+  }
+
+  const title = sanitizeString(data.title, "title", 180);
+  const summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 4000) : "";
+  const clientId = sanitizeString(data.clientId, "clientId", 128);
+  const classification = data.classification;
+  const sourceType = data.sourceType;
+
+  if (!["PUBLIC_INTERNAL", "CONFIDENTIAL", "RESTRICTED"].includes(classification)) {
+    throw new functions.https.HttpsError("invalid-argument", "Clasificación de expediente inválida.");
+  }
+  if (!["INTERNAL", "MANUAL"].includes(sourceType)) {
+    throw new functions.https.HttpsError("invalid-argument", "La fuente debe ser interna o manual.");
+  }
+
+  const clientSnap = await db.collection(COLLECTIONS.CLIENTS).doc(clientId).get();
+  if (!clientSnap.exists || clientSnap.data()?.isActive !== true) {
+    throw new functions.https.HttpsError("not-found", "El cliente indicado no existe o está inactivo.");
+  }
+  if (caller.role === "COORDINADOR" && (!Array.isArray(caller.clientIds) || !caller.clientIds.includes(clientId))) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
+  }
+
+  const requestedOwnerId = sanitizeString(data.ownerId, "ownerId", 128);
+  const ownerSnap = await db.collection(COLLECTIONS.USERS).doc(requestedOwnerId).get();
+  if (!ownerSnap.exists || ownerSnap.data()?.isActive !== true) {
+    throw new functions.https.HttpsError("invalid-argument", "El responsable no existe o está inactivo.");
+  }
+  const owner = ownerSnap.data()!;
+  if (!Array.isArray(owner.clientIds) || !owner.clientIds.includes(clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "El responsable no está asignado a este cliente.");
+  }
+  if (!["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(owner.role)) {
+    throw new functions.https.HttpsError("invalid-argument", "El responsable debe ser personal operativo o coordinador.");
+  }
+
+  const now = new Date().toISOString();
+  const caseRef = db.collection(COLLECTIONS.INTELLIGENCE_CASES).doc();
+  const auditRef = db.collection(COLLECTIONS.AUDIT_LOGS).doc();
+  const caseData = {
+    clientId,
+    title,
+    summary,
+    classification,
+    status: "OPEN",
+    ownerId: requestedOwnerId,
+    createdBy: context.auth.uid,
+    createdAt: now,
+    updatedAt: now,
+    sourceType,
+    entityIds: [],
+    tags: [],
+  };
+
+  const batch = db.batch();
+  batch.create(caseRef, caseData);
+  batch.create(auditRef, {
+    action: "intelligence_case_created",
+    userId: context.auth.uid,
+    userName: caller.fullName,
+    targetId: caseRef.id,
+    clientId,
+    classification,
+    sourceType,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+
+  return { success: true, case: { id: caseRef.id, ...caseData } };
+});
+
+
+// ==========================================
+// 6. LIST INTELLIGENCE CASES
+// Lectura sensible por callable para evitar persistencia offline
+// del contenido de inteligencia en la caché local de Firestore.
+// ==========================================
+export const listIntelligenceCases = functions.https.onCall(async (_data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR", "SUPERVISOR", "GUARDA"]);
+
+  const collection = db.collection("intelligenceCases");
+  let snapshots: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+
+  if (caller.role === "ADMIN" || caller.role === "CENTRAL") {
+    const result = await collection.orderBy("updatedAt", "desc").limit(50).get();
+    snapshots = result.docs;
+  } else if (caller.role === "COORDINADOR") {
+    const clientIds = Array.isArray(caller.clientIds) ? caller.clientIds : [];
+    const batches: string[][] = [];
+    for (let i = 0; i < clientIds.length; i += 10) batches.push(clientIds.slice(i, i + 10));
+    const results = await Promise.all(batches.map((ids) =>
+      collection.where("clientId", "in", ids).limit(50).get()
+    ));
+    snapshots = results.flatMap((result) => result.docs)
+      .sort((a, b) => String(b.data().updatedAt).localeCompare(String(a.data().updatedAt)))
+      .slice(0, 50);
+  } else {
+    const result = await collection.where("ownerId", "==", context.auth.uid).limit(50).get();
+    snapshots = result.docs;
+  }
+
+  await logAudit("intelligence_cases_listed", context.auth.uid, caller.fullName, {
+    callerRole: caller.role,
+    resultCount: snapshots.length,
+  });
+
+  return {
+    cases: snapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+  };
+});
+
+// ==========================================
+// 7. LIST ASSIGNABLE INTELLIGENCE OWNERS
+// Devuelve únicamente usuarios activos asignados al cliente solicitado.
+// ==========================================
+export const listAssignableIntelligenceOwners = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+
+  const clientId = sanitizeString(data?.clientId, "clientId", 128);
+  if (caller.role === "COORDINADOR" &&
+      (!Array.isArray(caller.clientIds) || !caller.clientIds.includes(clientId))) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
+  }
+
+  const result = await db.collection(COLLECTIONS.USERS)
+    .where("clientIds", "array-contains", clientId)
+    .limit(100)
+    .get();
+
+  const users = result.docs
+    .map((snapshot) => {
+      const user = snapshot.data();
+      return {
+        id: snapshot.id,
+        fullName: typeof user.fullName === "string" ? user.fullName : "Usuario",
+        role: user.role,
+        isActive: user.isActive === true,
+      };
+    })
+    .filter((user) => user.isActive && ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role))
+    .map((user) => ({
+      id: user.id,
+      fullName: user.fullName,
+      role: user.role,
+    }));
+
+  await logAudit("intelligence_assignable_owners_listed", context.auth.uid, caller.fullName, {
+    clientId,
+    resultCount: users.length,
+  });
+
+  return { users };
 });

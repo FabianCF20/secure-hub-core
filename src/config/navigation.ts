@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   BookOpen,
+  BrainCircuit,
 } from "lucide-react";
 
 export interface NavItem {
@@ -60,6 +61,12 @@ export const navItems: NavItem[] = [
     icon: BarChart3,
     label: "Reportes",
     allowedRoles: ["ADMIN", "CENTRAL", "COORDINADOR"],
+  },
+  {
+    to: "/intelligence",
+    icon: BrainCircuit,
+    label: "Inteligencia",
+    allowedRoles: ["ADMIN", "CENTRAL", "COORDINADOR", "SUPERVISOR", "GUARDA"],
   },
   {
     to: "/settings",

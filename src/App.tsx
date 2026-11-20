@@ -17,6 +17,7 @@ import Records from "./pages/Records";
 import RecordDetail from "./pages/RecordDetail";
 import Reports from "./pages/Reports";
 import Minuta from "./pages/Minuta";
+import Intelligence from "./pages/Intelligence";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -89,6 +90,11 @@ const App = () => (
                 <Route path="/reports" element={
                   <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR"]}>
                     <Reports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/intelligence" element={
+                  <ProtectedRoute allowedRoles={["ADMIN", "CENTRAL", "COORDINADOR", "SUPERVISOR", "GUARDA"]}>
+                    <Intelligence />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={

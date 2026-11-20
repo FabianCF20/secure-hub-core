@@ -57,7 +57,7 @@ service cloud.firestore {
     }
 
     function hasClient(clientId) {
-      return isAuthenticated() && clientId in getUserProfile().clientIds;
+      return isAuthenticated() && getUserProfile().clientIds is list && clientId in getUserProfile().clientIds;
     }
 
     // ============================================
@@ -171,6 +171,28 @@ service cloud.firestore {
     match /systemConfig/{docId} {
       allow read: if isAuthenticated() && isActiveUser();
       allow write: if isAdmin() && isActiveUser();
+    }
+
+    // --- INTELIGENCIA ---
+    // Lectura y escritura de datos de inteligencia se exponen exclusivamente
+    // mediante Cloud Functions autenticadas. Evita lecturas directas y caché offline.
+    match /intelligenceCases/{caseId} {
+      allow read, write: if false;
+    }
+    match /intelligenceEntities/{entityId} {
+      allow read, write: if false;
+    }
+    match /intelligenceEvents/{eventId} {
+      allow read, write: if false;
+    }
+    match /intelligenceEvidence/{evidenceId} {
+      allow read, write: if false;
+    }
+    match /intelligenceFindings/{findingId} {
+      allow read, write: if false;
+    }
+    match /intelligenceMatches/{matchId} {
+      allow read, write: if false;
     }
 
     // --- REGLA DEFAULT ---
