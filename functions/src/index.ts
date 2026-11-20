@@ -470,6 +470,11 @@ export const listIntelligenceCases = functions.https.onCall(async (_data, contex
     snapshots = result.docs;
   }
 
+  await logAudit("intelligence_cases_listed", context.auth.uid, caller.fullName, {
+    callerRole: caller.role,
+    resultCount: snapshots.length,
+  });
+
   return {
     cases: snapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
   };
@@ -510,6 +515,11 @@ export const listAssignableIntelligenceOwners = functions.https.onCall(async (da
       };
     })
     .filter((user) => ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role));
+
+  await logAudit("intelligence_assignable_owners_listed", context.auth.uid, caller.fullName, {
+    clientId,
+    resultCount: users.length,
+  });
 
   return { users };
 });
