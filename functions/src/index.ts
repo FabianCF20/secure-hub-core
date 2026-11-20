@@ -393,9 +393,7 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
     throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
   }
 
-  const requestedOwnerId = typeof data.ownerId === "string" && data.ownerId.trim()
-    ? data.ownerId.trim()
-    : context.auth.uid;
+  const requestedOwnerId = sanitizeString(data.ownerId, "ownerId", 128);
   const ownerSnap = await db.collection(COLLECTIONS.USERS).doc(requestedOwnerId).get();
   if (!ownerSnap.exists || ownerSnap.data()?.isActive !== true) {
     throw new functions.https.HttpsError("invalid-argument", "El responsable no existe o está inactivo.");
