@@ -57,7 +57,7 @@ service cloud.firestore {
     }
 
     function hasClient(clientId) {
-      return isAuthenticated() && clientId in getUserProfile().clientIds;
+      return isAuthenticated() && getUserProfile().clientIds is list && clientId in getUserProfile().clientIds;
     }
 
     // Acceso a expedientes de inteligencia: ADMIN/CENTRAL global, COORDINADOR por cliente,
