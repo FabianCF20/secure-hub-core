@@ -49,4 +49,12 @@ Los documentos secundarios deben incluir siempre `caseId` y `clientId`. No guard
 
 ## Estado de esta entrega
 
-Base de modelos, pantalla de entrada, ruta y navegación; reglas de lectura iniciales; callable para crear expedientes con origen MANUAL o INTERNAL. Aún no están habilitados el formulario de captura, consultas, carga de archivos, eventos, entidades, hallazgos, coincidencias ni informes. No se debe cargar información real hasta completar y probar esos flujos.
+Implementado en rama de trabajo:
+- Modelos, pantalla, ruta y navegación por rol.
+- Recepción manual mediante Cloud Function con validación de perfil activo, rol, cliente y responsable.
+- Listado de expedientes mediante Cloud Function con alcance ADMIN/CENTRAL global, COORDINADOR por clientes asignados y SUPERVISOR/GUARDA por propietario.
+- Consulta de responsables asignables limitada al cliente.
+- Auditoría de creación, consultas de expedientes y consulta de responsables.
+- Reglas Firestore deniegan lectura y escritura directa para todas las colecciones de inteligencia. El acceso se realiza por callable para evitar exponer el contenido en la caché persistente del SDK Firestore.
+
+Pendiente antes de uso real: ejecutar build/lint, compilar Cloud Functions, configurar y desplegar las reglas con la configuración Firebase del entorno, probar permisos con Emulator Suite y revisar el modelo de clasificación. No están habilitadas todavía las evidencias, eventos, entidades, hallazgos, coincidencias ni informes. No cargar información sensible real hasta completar las pruebas.
