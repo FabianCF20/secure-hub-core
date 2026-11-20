@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import {
   BrainCircuit,
   FolderSearch,
