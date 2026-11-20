@@ -392,10 +392,8 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
     throw new functions.https.HttpsError("invalid-argument", "El responsable no existe o está inactivo.");
   }
   const owner = ownerSnap.data()!;
-  if (!["ADMIN", "CENTRAL"].includes(caller.role)) {
-    if (!Array.isArray(owner.clientIds) || !owner.clientIds.includes(clientId)) {
-      throw new functions.https.HttpsError("permission-denied", "El responsable no está asignado a este cliente.");
-    }
+  if (!Array.isArray(owner.clientIds) || !owner.clientIds.includes(clientId)) {
+    throw new functions.https.HttpsError("permission-denied", "El responsable no está asignado a este cliente.");
   }
   if (!["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(owner.role)) {
     throw new functions.https.HttpsError("invalid-argument", "El responsable debe ser personal operativo o coordinador.");
