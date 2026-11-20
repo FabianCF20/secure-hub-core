@@ -460,14 +460,13 @@ export const listIntelligenceCases = functions.https.onCall(async (_data, contex
     const batches: string[][] = [];
     for (let i = 0; i < clientIds.length; i += 10) batches.push(clientIds.slice(i, i + 10));
     const results = await Promise.all(batches.map((ids) =>
-      collection.where("clientId", "in", ids).orderBy("updatedAt", "desc").limit(50).get()
+      collection.where("clientId", "in", ids).limit(50).get()
     ));
     snapshots = results.flatMap((result) => result.docs)
       .sort((a, b) => String(b.data().updatedAt).localeCompare(String(a.data().updatedAt)))
       .slice(0, 50);
   } else {
-    const result = await collection.where("ownerId", "==", context.auth.uid)
-      .orderBy("updatedAt", "desc").limit(50).get();
+    const result = await collection.where("ownerId", "==", context.auth.uid).limit(50).get();
     snapshots = result.docs;
   }
 
