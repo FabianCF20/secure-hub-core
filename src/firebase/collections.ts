@@ -18,12 +18,6 @@ export const COLLECTIONS = {
   INTELLIGENCE_EVIDENCE: "intelligenceEvidence",
   INTELLIGENCE_FINDINGS: "intelligenceFindings",
   INTELLIGENCE_MATCHES: "intelligenceMatches",
-  INTELLIGENCE_CASES: "intelligenceCases",
-  INTELLIGENCE_ENTITIES: "intelligenceEntities",
-  INTELLIGENCE_EVENTS: "intelligenceEvents",
-  INTELLIGENCE_EVIDENCE: "intelligenceEvidence",
-  INTELLIGENCE_FINDINGS: "intelligenceFindings",
-  INTELLIGENCE_MATCHES: "intelligenceMatches",
 } as const;
 
 // Documento único para configuración del sistema
