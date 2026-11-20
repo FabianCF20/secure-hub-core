@@ -433,3 +433,84 @@ export const createIntelligenceCase = functions.https.onCall(async (data, contex
 
   return { success: true, case: { id: caseRef.id, ...caseData } };
 });
+
+
+// ==========================================
+// 6. LIST INTELLIGENCE CASES
+// Lectura sensible por callable para evitar persistencia offline
+// del contenido de inteligencia en la caché local de Firestore.
+// ==========================================
+export const listIntelligenceCases = functions.https.onCall(async (_data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR", "SUPERVISOR", "GUARDA"]);
+
+  const collection = db.collection("intelligenceCases");
+  let snapshots: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+
+  if (caller.role === "ADMIN" || caller.role === "CENTRAL") {
+    const result = await collection.orderBy("updatedAt", "desc").limit(50).get();
+    snapshots = result.docs;
+  } else if (caller.role === "COORDINADOR") {
+    const clientIds = Array.isArray(caller.clientIds) ? caller.clientIds : [];
+    const batches: string[][] = [];
+    for (let i = 0; i < clientIds.length; i += 10) batches.push(clientIds.slice(i, i + 10));
+    const results = await Promise.all(batches.map((ids) =>
+      collection.where("clientId", "in", ids).orderBy("updatedAt", "desc").limit(50).get()
+    ));
+    snapshots = results.flatMap((result) => result.docs)
+      .sort((a, b) => String(b.data().updatedAt).localeCompare(String(a.data().updatedAt)))
+      .slice(0, 50);
+  } else {
+    const result = await collection.where("ownerId", "==", context.auth.uid)
+      .orderBy("updatedAt", "desc").limit(50).get();
+    snapshots = result.docs;
+  }
+
+  return {
+    cases: snapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+  };
+});
+
+// ==========================================
+// 7. LIST ASSIGNABLE INTELLIGENCE OWNERS
+// Devuelve únicamente usuarios activos asignados al cliente solicitado.
+// ==========================================
+export const listAssignableIntelligenceOwners = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const caller = await getCallerProfile(context.auth.uid);
+  assertActive(caller);
+  assertRole(caller.role, ["ADMIN", "CENTRAL", "COORDINADOR"]);
+
+  const clientId = sanitizeString(data?.clientId, "clientId", 128);
+  if (caller.role === "COORDINADOR" &&
+      (!Array.isArray(caller.clientIds) || !caller.clientIds.includes(clientId))) {
+    throw new functions.https.HttpsError("permission-denied", "No tienes acceso al cliente indicado.");
+  }
+
+  const result = await db.collection(COLLECTIONS.USERS)
+    .where("clientIds", "array-contains", clientId)
+    .where("isActive", "==", true)
+    .limit(100)
+    .get();
+
+  const users = result.docs
+    .map((snapshot) => {
+      const user = snapshot.data();
+      return {
+        id: snapshot.id,
+        fullName: typeof user.fullName === "string" ? user.fullName : "Usuario",
+        role: user.role,
+      };
+    })
+    .filter((user) => ["SUPERVISOR", "GUARDA", "COORDINADOR"].includes(user.role));
+
+  return { users };
+});
